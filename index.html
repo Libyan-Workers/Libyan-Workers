@@ -1,0 +1,3278 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>تطبيق الخريطة المحسن</title>
+    <link href="https://api.mapbox.com/mapbox-gl-js/v2.15.0/mapbox-gl.css" rel="stylesheet" />
+    <link rel="stylesheet" href="https://api.mapbox.com/mapbox-gl-js/plugins/mapbox-gl-directions/v4.1.1/mapbox-gl-directions.css" type="text/css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+            background-color: #f4f4f4;
+        }
+
+
+            /* تصميم الإشعار */
+/* تصميم الإشعار */
+.notification {
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%); /* يحرك العنصر ليكون في المنتصف تمامًا */
+    background-color: #FFC107; /* لون الخلفية */
+    color: #000;
+    padding: 15px 30px;
+    font-size: 18px;
+    border-radius: 10px;
+    box-shadow: 0 0 15px rgba(0, 0, 0, 0.3);
+    z-index: 10000;
+    text-align: center;
+}
+
+.notification button {
+    margin: 10px 5px 0 5px;
+    padding: 5px 10px;
+    font-size: 16px;
+    cursor: pointer;
+    border: none;
+    border-radius: 5px;
+}
+
+
+
+        #map { height: 100vh; width: 100%; }
+        .controlButton {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    text-align: center;
+    user-select: none;
+    background-color: rgba(30, 144, 255, 0.8);
+    border: none;
+    border-radius: 10px;
+    padding: 10px;
+    color: white;
+    font-weight: bold;
+    cursor: pointer;
+    margin: 0;
+    align-self: flex-end;
+    transition: background-color 0.3s ease;
+    transform: translateX(10px); /* يحرك الزر 5 بكسل نحو اليمين */
+    width: 70%;
+    font-size: 14px;
+}
+
+
+
+
+
+        .controlButton:hover {
+            background-color: rgb(49, 255, 30);
+        }
+        .controls {
+            position: absolute;
+            top: 60px;
+            left: 0px;
+            z-index: 1;
+            max-width: 100%;
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+
+
+
+        .iconButton {
+            width: 40px;
+            height: 40px;
+            border: none;
+            cursor: pointer;
+            background: none;
+            margin: 5px;
+            z-index: 2;
+        }
+        .icon {
+            font-size: 20px;
+            color: #ff5722;
+            transition: color 0.3s;
+        }
+        .icon:hover {
+            color: #e64a19;
+        }
+        #locateButtonContainer {
+            position: absolute;
+            bottom: 20px; /* مسافة من الأسفل */
+            right: 20px; /* مسافة من اليمين */
+            z-index: 2;
+        }
+        #locateButton {
+            background-color: rgba(30, 144, 255, 0.8);
+            border: none;
+            border-radius: 10px;
+            padding: 10px;
+            color: white;
+            font-weight: bold;
+            cursor: pointer;
+            transition: background-color 0.3s ease;
+            font-size: 14px;
+        }
+        #locateButton:hover {
+            background-color: rgb(49, 255, 30);
+        }
+
+        * {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+        .mapboxgl-ctrl-geocoder {
+  width: 200px !important;  
+  height: 35px !important;  
+  border-radius: 5px;        
+  font-size: 14px;           
+  display: flex;             
+  align-items: center;       
+  justify-content: center;   
+  position: relative; /* تأكد من ضبط الموضع */
+  z-index: 10; /* تأكد من أن مربع البحث فوق العناصر الأخرى */
+}
+
+/* جعل قائمة البحث تظهر فوق جميع العناصر */
+.mapboxgl-ctrl-geocoder .suggestions {
+  position: absolute !important;
+  z-index: 9999 !important; /* رفع القائمة فوق أي عنصر آخر */
+  background-color: white; /* الحفاظ على وضوح القائمة */
+  border: 1px solid #ccc;
+  border-radius: 5px;
+  box-shadow: 0px 4px 6px rgba(0, 0, 0, 0.1);
+  overflow: hidden;
+}
+.mapboxgl-ctrl-geocoder .mapboxgl-ctrl-geocoder--icon {
+  display: none !important; /* إخفاء الأيقونات (X والدائرة) */
+}
+
+/* تعديل موضع السهم الخاص بتحديد الاتجاه */
+.mapboxgl-user-location-heading {
+    position: absolute;
+    /* يمكنك تغيير قيم top و left لجعل السهم أقرب أو أبعد من الدائرة */
+    top: 100%; /* تقليل القيمة يجعل السهم أقرب إلى مركز الدائرة */
+    left: 50%;
+    /* تعديل transform لضبط المحاذاة والحجم */
+    transform: translate(-50%, -50%) rotate(0deg) scale(1.2);
+    /* scale(1.2) يزيد حجم السهم بنسبة 20%، يمكنك تغيير القيمة حسب رغبتك */
+    
+    /* يمكنك أيضًا تحديد عرض وارتفاع ثابتين للسهم إذا كان عنصرًا قابلًا لذلك */
+    width: 20px;
+    height: 20px;
+}
+
+#mediaPreviewContainer {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr); /* 3 أعمدة متساوية */
+  gap: 10px;
+  max-height: calc((80px * 4) + (10px * 3)); /* 4 صفوف: 4 صورة بارتفاع 80px + 3 فواصل بين الصفوف */
+  overflow-y: auto; /* شريط تمرير عمودي إذا زادت الصفوف */
+  padding: 5px;
+}
+
+/* تنسيق الصور والفيديو داخل المعاينة */
+#mediaPreviewContainer img,
+#mediaPreviewContainer video {
+  width: 80px;
+  height: 80px;
+  object-fit: cover;
+  border: 1px solid #ccc;
+  border-radius: 5px;
+}
+
+#reviewMediaPreviewContainer {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr); /* 3 أعمدة متساوية */
+  gap: 10px;
+  max-height: calc((80px * 4) + (10px * 3)); /* 4 صفوف بارتفاع 80px مع فواصل */
+  overflow-y: auto; /* شريط تمرير عمودي إذا زادت الصور */
+  padding: 5px;
+}
+
+#reviewMediaPreviewContainer img {
+  width: 80px;
+  height: 80px;
+  object-fit: cover;
+  border: 1px solid #ccc;
+  border-radius: 5px;
+}
+
+/* تنسيق لوحة الإعدادات */
+#settingsPanel {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 300px;
+  height: 100%;
+  background-color: #fff;
+  box-shadow: 2px 0 5px rgba(0,0,0,0.3);
+  z-index: 1100;
+  transform: translateX(-100%);
+  transition: transform 0.3s ease;
+  overflow-y: auto;
+  padding: 10px;
+}
+
+/* حالة ظهور اللوحة */
+#settingsPanel.open {
+  transform: translateX(0);
+}
+
+
+.request-popup {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  background: #fff;
+  border-radius: 10px;
+  padding: 15px;       /* تقليل الحشوة */
+  width: 90%;          /* تقليل النسبة من 95% إلى 90% */
+  max-width: 350px;    /* تقليل الحد الأقصى للعرض من 500px إلى 350px */
+  box-shadow: 0 0 15px rgba(0, 0, 0, 0.3);
+  direction: rtl;
+  font-family: Arial, sans-serif;
+  z-index: 3;
+  max-height: 90vh;    /* تحديد أقصى ارتفاع */
+  overflow-y: auto;    /* إضافة تمرير عمودي إذا زاد المحتوى عن الحد */
+}
+
+
+
+.request-popup h2 {
+  text-align: center;
+  margin-bottom: 20px;
+  font-size: 22px;
+}
+
+.form-group {
+  margin-bottom: 15px;
+}
+
+.form-group label {
+  display: block;
+  margin-bottom: 5px;
+  font-weight: bold;
+  font-size: 14px;
+}
+
+.form-group input[type="text"],
+.form-group textarea,
+.form-group select {
+  width: 100%;
+  padding: 10px;
+  border: 1px solid #ccc;
+  border-radius: 5px;
+  font-size: 14px;
+}
+
+.form-group textarea {
+  resize: vertical;
+  min-height: 80px;
+}
+
+.option-description {
+  font-size: 12px;
+  color: #555;
+  margin-top: 5px;
+}
+
+.button-group {
+  text-align: center;
+  margin-top: 20px;
+}
+
+.button-group button {
+  padding: 10px 20px;
+  margin: 0 10px;
+  border: none;
+  border-radius: 5px;
+  background-color: #007bff;
+  color: #fff;
+  cursor: pointer;
+  font-size: 14px;
+  transition: background-color 0.3s ease;
+}
+
+.button-group button:hover {
+  background-color: #0056b3;
+}
+
+/* تنسيق منطقة معاينة الصور بحيث تكون بارتفاع ثابت وقابلة للتمرير */
+#mediaPreviewContainer {
+  margin-top: 10px;
+  max-height: 120px;  /* تحديد ارتفاع ثابت */
+  overflow-y: auto;   /* إضافة تمرير عمودي إذا تجاوز المحتوى الارتفاع المحدد */
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+#mediaPreviewContainer img,
+#mediaPreviewContainer video {
+  width: 80px;
+  height: 80px;
+  object-fit: cover;
+  border: 1px solid #ccc;
+  border-radius: 5px;
+}
+
+/* تحسين المظهر على الشاشات الصغيرة */
+@media (max-width: 480px) {
+  .request-popup {
+    width: 95%;
+    padding: 15px;
+  }
+  
+  .request-popup h2 {
+    font-size: 20px;
+    margin-bottom: 15px;
+  }
+
+  .form-group input[type="text"],
+  .form-group textarea,
+  .form-group select {
+    padding: 8px;
+    font-size: 13px;
+  }
+
+  .button-group button {
+    padding: 8px 16px;
+    font-size: 13px;
+    margin: 5px 5px;
+  }
+}
+
+
+
+#mediaPreviewContainer {
+  max-height: 200px; /* يمكنك تعديل القيمة حسب التصميم المطلوب */
+  overflow-y: auto;
+}
+
+/* تنسيق النافذة بعد التعديل */
+#counterOfferPopup {
+  display: none;
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  background: white;
+  padding: 20px;
+  border-radius: 10px;
+  z-index: 1100;
+  max-height: 70vh;      /* الحد الأقصى للارتفاع كـ70% من ارتفاع المتصفح */
+  overflow-y: auto;      /* تفعيل شريط تمرير عمودي عند امتلاء المحتوى */
+  width: 90%;
+  max-width: 400px;      /* عرض أقصى مناسب */
+}
+
+/* تنسيق العنوان */
+#counterOfferPopup h2 {
+  text-align: center;
+  margin-bottom: 20px;
+}
+
+/* تنسيق الحقول */
+.form-group {
+  display: flex;
+  flex-direction: column;
+  margin-bottom: 15px;
+}
+
+.form-group label {
+  font-weight: bold;
+  margin-bottom: 5px;
+}
+
+/* تنسيق مدخلات النصوص */
+.form-group input[type="number"],
+.form-group textarea {
+  width: 100%;
+  padding: 10px;
+  border: 1px solid #ccc;
+  border-radius: 5px;
+  font-size: 14px;
+}
+
+/* تنسيق منطقة الأزرار */
+.button-group {
+  text-align: center;
+  margin-top: 20px;
+}
+
+.button-group button {
+  padding: 10px 15px;
+  margin: 0 10px;
+  border: none;
+  border-radius: 5px;
+  background-color: #007bff;
+  color: #fff;
+  cursor: pointer;
+  font-size: 14px;
+  transition: background-color 0.3s ease;
+}
+
+.button-group button:hover {
+  background-color: #0056b3;
+}
+
+
+
+    </style>
+</head>
+<body>
+
+    <!-- أيقونة الإعدادات في أعلى اليسار -->
+<button id="settingsBtn" style="position: fixed; top: 10px; left: 10px; z-index: 1100; background: none; border: none; cursor: pointer;">
+    <i class="fas fa-cog" style="font-size: 24px; color: #007bff;"></i>
+  </button>
+
+  <!-- لوحة الإعدادات المنبثقة -->
+<div id="settingsPanel">
+    <h2 style="margin-top: 20px; text-align: center;">الإعدادات</h2>
+    <p style="padding: 0 15px;">المحتويات هنا... (يمكنك تعديلها لاحقاً)</p>
+  </div>
+  
+    <!-- نافذة إعلام بسياسة الكوكيز -->
+    <div id="cookieConsentPopup" class="notification" style="display:none; position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%);">
+        <p>يستخدم هذا الموقع الكوكيز لتحسين تجربتك. هل توافق على استخدامها؟</p>
+        <button id="acceptCookie">موافق</button>
+    </div>
+
+    <h1 id="title" style="display: none;">تطبيق الخريطة المحسن</h1>
+    <div id="map"></div>
+    
+ 
+<!-- نافذة عرض التفاوض للمستخدم بعد التعديل -->
+<div id="negotiationResponsePopup" style="display:none; position: fixed; top:50%; left:50%; transform: translate(-50%, -50%); background:white; padding:20px; border-radius:10px; z-index:1100;">
+    <h2>هناك طلب تفاوض علي السعر</h2>
+    <!-- العنصر الجديد لعرض وصف الطلب -->
+    <p id="orderDescription">وصف الطلب: </p>
+    <p id="negotiationDetails"></p>
+    <button id="acceptNegotiationBtn">قبول العرض</button>
+    <button id="rejectNegotiationBtn">رفض العرض</button>
+    <button id="counterNegotiationBtn">اقتراح سعر جديد</button>
+</div>
+
+
+<!-- نموذج تقديم العرض المضاد بعد التعديل والإضافة -->
+<div id="counterOfferPopup">
+    <h2>تقديم عرض مضاد</h2>
+    
+    <div class="form-group">
+      <label for="counterPrice">السعر المقترح:</label>
+      <input type="number" id="counterPrice" placeholder="أدخل السعر">
+    </div>
+    
+    <div class="form-group">
+      <label for="counterMessage">الرسالة:</label>
+      <textarea id="counterMessage" placeholder="أدخل رسالتك"></textarea>
+    </div>
+    
+    <div class="button-group">
+      <button onclick="submitCounterOffer()">إرسال العرض المضاد</button>
+      <button onclick="closeCounterOfferForm()">إغلاق</button>
+    </div>
+    
+    <p class="warning-text">⚠️ تنبيه: يمنع إرسال رقم الهاتف أو أي وسيلة تواصل في الرسالة.</p>
+  </div>
+  
+  
+  
+
+    <div class="controls">
+        <button id="toggleWeather" class="iconButton">
+            <i class="fas fa-cloud-sun icon"></i>
+        </button>
+        <select id="styleSelector" class="controlButton">
+            <option value="streets">شوارع</option>
+            <option value="outdoors">خارجية</option>
+            <option value="hybrid" selected>هايبرد</option>
+            <option value="dark">الوضع الليلي</option>
+            <option value="light">الوضع الفاتح</option> <!-- الخيار الجديد -->
+        </select>
+        <button id="requestWorker" class="controlButton">طلب عامل</button>
+
+        <button id="requestWater" class="controlButton">طلب ماء</button>
+
+        <!-- NEW CODE: زر مراجعة/تعديل الطلب -->
+        <button id="reviewRequestButton" class="controlButton">عرض تفاصيل الطلب وتعديله</button>
+
+<!-- إضافة زر الإلغاء في واجهة المستخدم -->
+<div id="cancelRequestContainer" style="display:none; position: fixed; bottom: 20px; right: 20px; z-index: 1000;">
+    <button id="cancelRequestButton" class="controlButton" style="background-color: #d9534f;">إلغاء الطلب</button>
+  </div>
+          <div id="weatherInfo"></div>
+        <div id="workerInfo"></div>
+        <div id="mosqueInfo"></div>
+    </div>
+
+    <div id="locateButtonContainer">
+        <button id="locateButton">تحديد موقعي</button>
+    </div>
+
+    <!-- نافذة تتبع العامل تظهر عند قبول الطلب -->
+<div id="trackingPanel" style="position: fixed; bottom: 60px; left: 50%; transform: translateX(-50%); background: white; padding: 10px; border-radius: 5px; z-index: 1000; display: none;">
+    <p id="trackingInfo"></p>
+</div>
+
+    <!-- نافذة التحذير -->
+    <div id="confirmationPopup" style="display:none; position:fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); background: white; border-radius: 10px; padding: 20px; z-index: 3;">
+        <h2>تحذير</h2>
+        <p>سيتم وضع العلامة في المكان الذي تقف فيه حاليا. هل أنت موافق؟</p>
+        <button id="confirmYes">نعم</button>
+        <button id="confirmNo">لا</button>
+    </div>
+
+    <!-- نافذة إدخال الاسم ورقم الهاتف -->
+    <div id="inputPopup" style="display:none;">
+        <h2>إضافة معلومات</h2>
+        <label for="nameInput">اسم:</label>
+        <input type="text" id="nameInput" placeholder="أدخل الاسم">
+        
+        <label for="phoneInput">رقم الهاتف:</label>
+        <input type="text" id="phoneInput" placeholder="أدخل رقم الهاتف">
+        
+        <button id="submitInfo">التالي</button>
+        <button id="cancelInput">إلغاء</button>
+    </div>
+    
+<!-- مؤشر التحميل (يظهر أثناء الإرسال) -->
+<div id="loadingIndicator" style="display:none; position: fixed; top:50%; left:50%; transform: translate(-50%, -50%); background: rgba(0,0,0,0.7); color: #fff; padding: 15px 30px; border-radius: 5px; z-index: 10000;">
+  جاري إرسال الطلب...
+</div>
+
+
+<!-- نموذج تقديم الطلب بعد التعديل -->
+<div id="requestPopup" class="request-popup" style="display: none;">
+    <h2>إدخال تفاصيل الطلب</h2>
+    <form id="requestForm">
+      <div class="form-group">
+        <label for="workTypeInput">نوع العمل:</label>
+        <select id="workTypeInput" onchange="updateDescription()">
+          <option value="بناء" data-description="يُستخدم لأعمال الإنشاء والبناء">بناء</option>
+          <option value="سباكة" data-description="لأعمال السباكة وإصلاحات المياه">سباكة</option>
+          <option value="كهرباء" data-description="للأعمال الكهربائية والتركيبات">كهرباء</option>
+          <option value="نقل" data-description="لأعمال النقل والخدمات اللوجستية">نقل</option>
+          <option value="نجارة" data-description="للأعمال الخشبية وصناعة الأثاث">نجارة</option>
+          <option value="دهانات" data-description="للدهانات وتجميل الجدران">دهانات</option>
+          <option value="حدادة" data-description="للأعمال الحديدية والحدادة">حدادة</option>
+          <option value="تكييف وصيانة تبريد" data-description="للأعمال المتعلقة بالتكييف والصيانة">تكييف وصيانة تبريد</option>
+          <option value="تنظيف وصيانة عامة" data-description="للأعمال العامة والتنظيف">تنظيف وصيانة عامة</option>
+          <option value="استشارة" data-description="للحصول على استشارة فنية مختصرة حول المشروع">استشارة</option>
+          <option value="أخرى" data-description="إذا لم يتناسب أي خيار مع طلبك">أخرى</option>
+        </select>
+        <p id="optionDescription" class="option-description">يرجى اختيار نوع العمل لعرض الشرح.</p>
+      </div>
+      
+      <div class="form-group">
+        <label for="budgetInput">الميزانية المتاحة:</label>
+        <input type="text" id="budgetInput" placeholder="أدخل الميزانية">
+      </div>
+      
+      <div class="form-group">
+        <label for="timeInput">الوقت المطلوب:</label>
+        <input type="text" id="timeInput" placeholder="أدخل الزمن المطلوب">
+      </div>
+      
+      <div class="form-group">
+        <label for="descriptionInput">وصف العمل:</label>
+        <textarea id="descriptionInput" placeholder="أدخل وصف العمل"></textarea>
+      </div>
+      
+      <div class="form-group">
+        <label for="phoneInputRequest">رقم الهاتف:</label>
+        <input type="text" id="phoneInputRequest" placeholder="أدخل رقم الهاتف">
+      </div>
+      
+      <div class="form-group">
+        <label for="mediaInput">إرفاق ملفات (صور/فيديو):</label>
+        <input type="file" id="mediaInput" accept="image/*,video/*" multiple>
+        <!-- منطقة المعاينة مع ارتفاع ثابت وقابلية التمرير -->
+        <div id="mediaPreviewContainer"></div>
+      </div>
+      
+      <div class="button-group">
+        <button type="button" id="submitRequest">إرسال الطلب</button>
+        <button type="button" id="cancelRequest">إلغاء</button>
+      </div>
+    </form>
+    
+    <!-- سكريبت لتحديث وصف نوع العمل ومنع إدخال رقم الهاتف في الوصف -->
+    <script>
+      function updateDescription() {
+        var select = document.getElementById('workTypeInput');
+        var description = select.options[select.selectedIndex].getAttribute('data-description');
+        document.getElementById('optionDescription').innerText = description;
+      }
+      
+document.getElementById('descriptionInput').addEventListener('input', function() {
+  // الحصول على النص المدخل من قبل المستخدم
+  const originalValue = this.value;
+  
+  // إزالة الفواصل والرموز التي قد تستخدم لإخفاء الرقم (مسافات، شرطات، أقواس، نقاط، وفواصل عربية)
+  const cleanedValue = originalValue.replace(/[\s\-().،]/g, '');
+  
+  // تعبير نمطي متقدم لفحص أرقام الهواتف الليبية المحظورة:
+  // - يسمح بالنمط الذي يبدأ بـ "+218" أو "218"
+  // - أو يبدأ بـ "9" مع وجود رقم من 2 إلى 5، مع إمكانية وجود بادئة "0" (مثل 092 أو 92)
+  // - يتبع ذلك من 7 إلى 9 أرقام (يمكن تعديل الكمية بحسب الطول المطلوب)
+  const advancedRegex = /(?:\+?218|(?:0?9[2-5]))\d{7,9}/;
+  
+  // التحقق من وجود رقم مطابق بعد تنظيف النص
+  if (advancedRegex.test(cleanedValue)) {
+    alert("لا يُسمح بإدخال رقم هاتف في وصف العمل.");
+    // إزالة المقطع المطابق من النص الأصلي حتى يحافظ باقي المحتوى كما هو
+    this.value = originalValue.replace(advancedRegex, '');
+  }
+});
+
+    </script>
+  </div>
+  
+  
+  
+
+
+
+
+<div id="ratingPopup" style="display:none; position:fixed; top:50%; left:50%; transform:translate(-50%, -50%); background:white; padding:20px; border-radius:10px;">
+    <h2>تقييم العامل</h2>
+    <label>التقييم:</label>
+    <select id="ratingInput">
+        <option value="5">5 نجوم</option> 
+        <option value="4">4 نجوم</option>
+        <option value="3">3 نجوم</option>
+        <option value="2">2 نجوم</option>
+        <option value="1">1 نجمة</option>
+    </select>
+    <textarea id="reviewInput" placeholder="أضف تعليقك"></textarea>
+    <button id="submitRating">إرسال التقييم</button>
+</div>
+
+<!-- نافذة مراجعة وتعديل الطلب بعد التعديل -->
+<div id="reviewPopup" style="display:none; position:fixed; top:50%; left:50%; transform:translate(-50%, -50%); background:white; border-radius:10px; padding:15px; width:90%; max-width:350px; max-height:90vh; overflow-y:auto; direction:rtl; font-family:Arial, sans-serif; box-shadow:0 0 15px rgba(0,0,0,0.3);">
+    <h2 style="text-align:center; margin-bottom:20px;">تفاصيل الطلب</h2>
+    
+    <div class="form-group" style="margin-bottom:15px;">
+      <label for="reviewWorkType" style="display:block; margin-bottom:5px; font-weight:bold;">نوع العمل:</label>
+      <select id="reviewWorkType" style="width:100%; padding:10px; border:1px solid #ccc; border-radius:5px; font-size:14px;">
+        <option value="بناء">بناء</option>
+        <option value="سباكة">سباكة</option>
+        <option value="كهرباء">كهرباء</option>
+        <option value="نقل">نقل</option>
+        <option value="نجارة">نجارة</option>
+        <option value="دهانات">دهانات</option>
+        <option value="حدادة">حدادة</option>
+        <option value="تكييف وصيانة تبريد">تكييف وصيانة تبريد</option>
+        <option value="تنظيف وصيانة عامة">تنظيف وصيانة عامة</option>
+        <option value="أخرى">أخرى</option>
+      </select>
+    </div>
+    
+    <div class="form-group" style="margin-bottom:15px;">
+      <label for="reviewBudget" style="display:block; margin-bottom:5px; font-weight:bold;">الميزانية:</label>
+      <input type="text" id="reviewBudget" placeholder="أدخل الميزانية" style="width:100%; padding:10px; border:1px solid #ccc; border-radius:5px; font-size:14px;">
+    </div>
+    
+    <div class="form-group" style="margin-bottom:15px;">
+      <label for="reviewTime" style="display:block; margin-bottom:5px; font-weight:bold;">الوقت المطلوب:</label>
+      <input type="text" id="reviewTime" placeholder="أدخل الوقت المطلوب" style="width:100%; padding:10px; border:1px solid #ccc; border-radius:5px; font-size:14px;">
+    </div>
+    
+    <div class="form-group" style="margin-bottom:15px;">
+      <label for="reviewDescription" style="display:block; margin-bottom:5px; font-weight:bold;">وصف العمل:</label>
+      <textarea id="reviewDescription" placeholder="أدخل وصف العمل" style="width:100%; padding:10px; border:1px solid #ccc; border-radius:5px; font-size:14px; resize:vertical; min-height:80px;"></textarea>
+    </div>
+    
+    <div class="form-group" style="margin-bottom:15px;">
+      <label for="reviewPhone" style="display:block; margin-bottom:5px; font-weight:bold;">رقم الهاتف:</label>
+      <input type="text" id="reviewPhone" placeholder="أدخل رقم الهاتف" style="width:100%; padding:10px; border:1px solid #ccc; border-radius:5px; font-size:14px;">
+    </div>
+    
+    <div class="form-group" style="margin-bottom:15px;">
+      <label for="reviewImageInput" style="display:block; margin-bottom:5px; font-weight:bold;">إرفاق صورة العمل:</label>
+      <input type="file" id="reviewImageInput" style="width:100%; margin-bottom:5px;">
+      <button id="reviewUploadButton" style="display:block; margin-bottom:10px; padding:10px 20px; background-color:#007bff; color:white; border:none; border-radius:5px; cursor:pointer;">رفع الصورة</button>
+    </div>
+    
+    <div class="form-group" style="margin-bottom:15px;">
+      <label style="display:block; margin-bottom:5px; font-weight:bold;">معاينة الصور المرفقة:</label>
+      <div id="reviewMediaPreviewContainer" style="width:100%; max-height:120px; overflow-y:auto; border:1px solid #ccc; padding:5px; border-radius:5px;"></div>
+    </div>
+    
+    <div class="button-group" style="text-align:center; margin-top:20px;">
+      <button id="updateRequestButton" style="padding:10px 20px; margin:0 10px; background-color:#007bff; color:white; border:none; border-radius:5px; cursor:pointer;">تحديث الطلب</button>
+      <button id="deleteRequestButton" style="padding:10px 20px; margin:0 10px; background-color:#d9534f; color:white; border:none; border-radius:5px; cursor:pointer;">حذف الطلب</button>
+      <button id="closeReviewPopup" style="padding:10px 20px; margin:0 10px; background-color:#6c757d; color:white; border:none; border-radius:5px; cursor:pointer;">إغلاق</button>
+    </div>
+  </div>
+  
+
+
+
+
+<!-- مكتبات Firebase App و Messaging -->
+<script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+<script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-messaging.js"></script>
+
+<script src="https://js.pusher.com/beams/1.0/push-notifications-cdn.js"></script>
+
+<script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
+
+<!-- مكتبات إضافية -->
+<script src="https://api.mapbox.com/mapbox-gl-js/v2.15.0/mapbox-gl.js"></script>
+<script src="https://unpkg.com/@turf/turf@6/turf.min.js"></script>
+
+<script src="https://api.mapbox.com/mapbox-gl-js/plugins/mapbox-gl-directions/v4.1.1/mapbox-gl-directions.js"></script>
+
+<script src="https://api.mapbox.com/mapbox-gl-js/plugins/mapbox-gl-geocoder/v4.7.0/mapbox-gl-geocoder.min.js"></script>
+<script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-storage.js"></script>
+
+
+<script>
+
+    // التحقق من تحميل مكتبة Mapbox
+    if (typeof mapboxgl === 'undefined') {
+        console.error("لم يتم تحميل مكتبة Mapbox بنجاح.");
+    } else {
+        console.log("تم تحميل مكتبة Mapbox بنجاح:", mapboxgl);
+    }
+        
+// إعداد Firebase بالمفاتيح الصحيحة
+const firebaseConfig = {
+    apiKey: "AIzaSyAQ2FQL0DvbPx4YnJrrAmal2o-yaH_KP_s",
+    authDomain: "adlo-44d1b.firebaseapp.com",
+    databaseURL: "https://adlo-44d1b-default-rtdb.firebaseio.com",
+    projectId: "adlo-44d1b",
+    storageBucket: "adlo-44d1b.firebasestorage.app",
+    messagingSenderId: "96260637269",
+    appId: "1:96260637269:web:e3bc37ab2b41038c254adc",
+    measurementId: "G-R0SGBWC3CJ"
+};
+
+// تهيئة Firebase
+firebase.initializeApp(firebaseConfig);
+
+
+
+
+// تحقق من تحميل مكتبة Pusher Beams
+if (typeof PusherPushNotifications === 'undefined') {
+    console.error('Pusher Beams لم يتم تحميل المكتبة. تأكد من تضمين المكتبة في HTML.');
+} else {
+    console.log('Pusher Beams تم تحميل المكتبة بنجاح.');
+}
+
+
+// تهيئة Pusher Beams
+document.addEventListener("DOMContentLoaded", () => {
+    const beamsClient = new PusherPushNotifications.Client({
+        instanceId: 'c9641070-f290-4aab-9239-18b096e3d8bc'
+    });
+
+    beamsClient.start()
+        .then(() => {
+            return beamsClient.addDeviceInterest('debug-new-orders');
+        })
+        .then(() => {
+            console.log('Pusher Beams جاهز لاستقبال إشعارات الطلبات الجديدة');
+            return beamsClient.addDeviceInterest('debug-new-orders');
+        })
+        .then(() => {
+            console.log('تم تسجيل الجهاز للاشتراك في debug-new-orders');
+        })
+        .catch(err => console.error('فشل تسجيل الجهاز:', err));
+
+    beamsClient.onNotificationOpened = (payload) => {
+        alert(`إشعار جديد من Pusher Beams: ${payload.notification.body}`);
+    };
+
+    // إضافة مستمع لزر إلغاء الطلب بعد التأكد من وجوده في الصفحة
+    const cancelRequestBtn = document.getElementById('cancelRequestButton');
+    if (cancelRequestBtn) {
+        cancelRequestBtn.addEventListener('click', function() {
+            showCancelConfirmation(function() {
+                // تحديث حالة الطلب في Firebase عند إلغاء الطلب من قبل المستخدم
+                const requestRef = firebase.database().ref(`workRequests/${currentRequestId}`);
+                requestRef.update({ status: 'canceled_by_user' })
+                    .then(() => {
+                        alert('تم إلغاء الطلب.');
+                        // إرسال إشعار للعامل باستخدام الدالة المناسبة
+                        sendPusherNotification(workerId, 'تم إلغاء الطلب من قبل المستخدم.');
+                        // إخفاء زر الإلغاء بعد التنفيذ
+                        document.getElementById('cancelRequestContainer').style.display = 'none';
+                    })
+                    .catch((err) => console.error("خطأ في تحديث حالة الطلب:", err));
+            });
+        });
+    }
+});
+
+
+
+// تعريف الكائنات بعد التهيئة
+const messaging = firebase.messaging();
+const database = firebase.database();
+
+
+
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('/sw.js')
+    .then((registration) => {
+      console.log('Service Worker مسجل بنجاح:', registration);
+
+      // ربط Firebase Messaging مع Service Worker
+      messaging.useServiceWorker(registration);
+
+      // طلب الإذن بالحصول على التوكن
+      return messaging.requestPermission()
+        .then(() => messaging.getToken({ vapidKey: 'BC5AZjNwVnpdJTIpZuCYncnGggugQjxhwdhEos0IpVLKNt_6m9iSbAXzVlNav0MqvVZfMk431Ka_pLZ_BbLNyPA' }));
+    })
+    .then((token) => {
+      console.log('تم الحصول على التوكن:', token);
+
+      // حفظ التوكن في قاعدة البيانات
+      const userId = "user_123"; // تأكد من تحديث هذا المعرف للمستخدم الفعلي
+      const userRef = database.ref(`users/${userId}/notificationToken`);
+      return userRef.set(token);
+    })
+    .catch((error) => console.error('فشل تسجيل Service Worker:', error));
+} else {
+  console.warn('هذا المتصفح لا يدعم Service Workers.');
+}
+
+
+  // الحصول على العناصر
+  const settingsBtn = document.getElementById('settingsBtn');
+  const settingsPanel = document.getElementById('settingsPanel');
+
+  // عند النقر على أيقونة الإعدادات، يتم تبديل حالة ظهور اللوحة
+  settingsBtn.addEventListener('click', function(event) {
+    event.stopPropagation(); // منع انتشار النقر لباقي الصفحة
+    settingsPanel.classList.toggle('open');
+  });
+
+  // عند النقر خارج لوحة الإعدادات، إغلاقها
+  document.addEventListener('click', function(event) {
+    if (!settingsPanel.contains(event.target) && event.target !== settingsBtn) {
+      settingsPanel.classList.remove('open');
+    }
+  });
+
+  // لمنع إغلاق اللوحة عند النقر داخلها
+  settingsPanel.addEventListener('click', function(event) {
+    event.stopPropagation();
+  });
+
+
+// تعريف متغيرات عامة
+var currentRequestId;
+const requestsRef = database.ref('workRequests'); // تأكد من تعريف هذا المتغير
+
+// دالة مراقبة حالة الطلب (لا حاجة لتعديلها)
+function monitorRequestStatus(requestId) {
+    const requestRef = firebase.database().ref(`workRequests/${requestId}`);
+    console.log("📡 بدء مراقبة حالة الطلب:", requestId);
+
+    requestRef.on('value', (snapshot) => {
+        const requestData = snapshot.val();
+        console.log("📡 بيانات الطلب المستلمة:", requestData);
+
+        if (!requestData) {
+            console.warn(`⚠️ لا توجد بيانات محدثة للطلب ${requestId}`);
+            return;
+        }
+
+        if (requestData.status === 'accepted') {
+            const now = Date.now();
+            // التحقق من وجود حقل acceptedAt، وإن لم يكن موجوداً، يتم تعيينه
+            if (!requestData.acceptedAt) {
+                requestRef.update({ acceptedAt: now });
+            } else {
+                // إذا مرّت ثلاث ساعات (10,800,000 مللي ثانية) دون أن يتم تحديث الطلب إلى "finished"
+                if (now - requestData.acceptedAt >= 10800000 && requestData.status !== 'finished') {
+                    requestRef.update({
+                        status: 'pending',
+                        note: 'تم إعادة تعيين الطلب بسبب تأخر العامل عن المهلة المحددة.'
+                    })
+                    .then(() => {
+                        showCancellationNotice("تنبيه: تجاوز العامل المهلة المحددة (3 ساعات) ولم يكمل الطلب. سيتم إعادة عرض الطلب.");
+                    })
+                    .catch((err) => console.error("خطأ في تحديث حالة الطلب:", err));
+                    return; // الخروج لمنع متابعة تنفيذ الكود الخاص بحالة accepted
+                }
+            }
+
+            const acceptedWorkerId = requestData.acceptedBy;
+
+            // استرجاع اسم العامل أولًا قبل استرجاع موقعه
+            database.ref(`workers/${acceptedWorkerId}/name`).once('value')
+                .then((nameSnap) => {
+                    const workerName = nameSnap.val() || "العامل مجهول";
+                    return database.ref(`workers/${acceptedWorkerId}/location`).once('value')
+                        .then((workerSnap) => ({ workerName, workerLocation: workerSnap.val() }));
+                })
+                .then(({ workerName, workerLocation }) => {
+                    if (!workerLocation) {
+                        console.error("🚨 لا يوجد موقع للعامل:", workerName);
+                        return;
+                    }
+
+                    const userLocation = requestData.location;
+                    const distance = calculateDistance(userLocation, workerLocation);
+
+                    // حساب الوقت المقدر للوصول
+                    return calculateETAWithPromise(workerLocation, userLocation)
+                        .then((etaMinutes) => {
+                            alert(`✅ تم قبول طلبك من قبل العامل: ${workerName}\nالمسافة: ${distance.toFixed(2)} كم\nالوقت المقدر للوصول: ${etaMinutes} دقيقة`);
+                            console.log(`✅ تم قبول الطلب ${requestId} من العامل ${workerName}، المسافة: ${distance.toFixed(2)} كم، ETA: ${etaMinutes} دقيقة`);
+
+                            // تفعيل نافذة تتبع العامل وتحديثها في الوقت الحقيقي
+                            document.getElementById('trackingPanel').style.display = 'block';
+                            startWorkerTracking(acceptedWorkerId, userLocation, workerName);
+                            trackWorkerArrival(acceptedWorkerId, userLocation);
+                            console.log("📡 تم استدعاء trackWorkerArrival لمراقبة وصول العامل");
+
+                            // بدء مراقبة نشاط العامل باستخدام موقع الطلب
+                            monitorWorkerActivity(acceptedWorkerId, requestId, userLocation);
+                        });
+                })
+                .catch((error) => {
+                    console.error("🚨 خطأ في استرجاع بيانات العامل:", error);
+                });
+
+            } else if (requestData.status === 'finished') {
+  // عند انتهاء الطلب، يتم إخفاء واجهة تتبع العامل وإزالة الماركر من الخريطة
+  document.getElementById('trackingPanel').style.display = 'none';
+  removeRequestMarker(requestId);
+  console.log("تم إخفاء واجهة تتبع العامل وإزالة الماركر بعد انتهاء الطلب.");
+}
+ else if (requestData.status === 'completed') {
+  alert('🎉 تم إكمال الطلب.');
+} else if (requestData.status && requestData.status.trim() === 'canceled_by_worker') {
+            console.log("🚨 تم استلام حالة 'canceled_by_worker'");
+
+            alert("❌ تم إلغاء الطلب من قبل العامل.");
+
+            // إخفاء واجهة تتبع العامل
+            const trackingPanel = document.getElementById('trackingPanel');
+            if (trackingPanel) {
+                trackingPanel.style.display = 'none';
+                console.log("🛑 تم إخفاء واجهة تتبع العامل.");
+            } else {
+                console.warn("⚠️ عنصر trackingPanel غير موجود.");
+            }
+
+            // إزالة المسار من الخريطة إن وجد
+            if (map.getLayer('route-user')) {
+                map.removeLayer('route-user');
+                map.removeSource('route-user');
+                console.log("🛑 تم إزالة مسار العامل من الخريطة بعد إلغاء الطلب.");
+            }
+
+            // إخفاء أي معلومات أخرى عن العامل أو الطلب
+            const workerInfoPanel = document.getElementById('workerInfoPanel');
+            if (workerInfoPanel) {
+                workerInfoPanel.style.display = 'none';
+                console.log("🛑 تم إخفاء معلومات العامل بعد إلغاء الطلب.");
+            }
+
+            const jobDetails = document.getElementById('jobDetails');
+            if (jobDetails) {
+                jobDetails.style.display = 'none';
+                console.log("🛑 تم إخفاء تفاصيل الطلب بعد إلغائه.");
+            }
+
+            return; // منع أي عمليات أخرى على الطلب الملغي
+
+        } else if (requestData.status === 'pending' && requestData.note) {
+            // التعامل مع حالة إعادة تعيين الطلب بسبب انقطاع اتصال العامل
+            console.warn("⚠️ تمت إعادة تعيين الطلب بسبب انقطاع اتصال العامل:", requestData.note);
+            alert("تنبيه: لم يتم استكمال الطلب من قبل العامل بسبب فقدان الاتصال. سيتم إعادة عرض الطلب.");
+
+        } else {
+            console.log(`🔄 حالة الطلب الحالية: ${requestData.status}`);
+        }
+    });
+}
+
+
+
+
+
+// متغيّر عالمي لتعطيل رسم خط التتبع إذا تغيرت حالة الطلب إلى pending
+window.trackingCancelled = false;
+
+// دالة مقارنة الموقع بدقة (تعتبر الموقع ثابتاً إذا كانت الفروق أقل من العتبة المحددة)
+function isLocationStatic(prevLocation, currentLocation, threshold = 0.00001) {
+    const latDiff = Math.abs(prevLocation.lat - currentLocation.lat);
+    const lngDiff = Math.abs(prevLocation.lng - currentLocation.lng);
+    return (latDiff < threshold && lngDiff < threshold);
+}
+
+// كائن لتخزين بيانات الثبات لكل عامل
+var workerStaticData = {};
+
+// دالة مراقبة نشاط العامل مع بدء التحقق الدوري
+function monitorWorkerActivity(workerId, requestId, userLocation) {
+    const workerLastActiveRef = firebase.database().ref(`workers/${workerId}/lastActive`);
+    let disconnectTime = null;
+    let checkInterval = null;
+
+    workerLastActiveRef.on('value', snapshot => {
+        const lastActive = snapshot.val();
+        const now = Date.now();
+        if (lastActive) {
+            const elapsed = now - lastActive;
+            console.log(`العامل ${workerId} آخر نشاط منذ ${Math.round(elapsed / 1000)} ثانية.`);
+            if (elapsed > 60 * 1000) { // بعد دقيقة واحدة من عدم النشاط
+                if (!disconnectTime) {
+                    disconnectTime = now;
+                    // إعداد بيانات الثبات عند أول اكتشاف الانقطاع
+                    firebase.database().ref(`workers/${workerId}/location`).once('value')
+                        .then(locSnap => {
+                            workerStaticData[workerId] = {
+                                previousLocation: locSnap.val(),
+                                staticStartTime: now
+                            };
+                        });
+                }
+                // بدء التحقق الدوري كل 10 ثوانٍ
+                if (!checkInterval) {
+                    checkInterval = setInterval(() => {
+                        checkWorkerStatus(workerId, requestId, userLocation, disconnectTime);
+                    }, 10000);
+                }
+            } else {
+                // إذا عاد العامل يتم إعادة تعيين القيم
+                disconnectTime = null;
+                if (checkInterval) {
+                    clearInterval(checkInterval);
+                    checkInterval = null;
+                }
+                // إعادة تعيين بيانات الثبات
+                if (workerStaticData[workerId]) {
+                    workerStaticData[workerId].staticStartTime = now;
+                    firebase.database().ref(`workers/${workerId}/location`).once('value')
+                        .then(locSnap => {
+                            workerStaticData[workerId].previousLocation = locSnap.val();
+                        });
+                }
+            }
+        } else {
+            console.error(`❌ لا يوجد سجل lastActive للعامل ${workerId}`);
+        }
+    });
+}
+
+// الدالة المعدلة للتحقق النهائي من حالة العامل
+function checkWorkerStatus(workerId, requestId, userLocation, disconnectTime) {
+    const now = Date.now();
+    const elapsedSinceDisconnect = now - disconnectTime;
+
+    firebase.database().ref(`workers/${workerId}`).once('value')
+        .then(snapshot => {
+            const workerData = snapshot.val();
+            const lastActive = workerData.lastActive;
+            const elapsed = now - lastActive;
+            const isActive = workerData.active;
+            const currentLocation = workerData.location;
+
+            // تحديث بيانات الثبات بناءً على مقارنة دقيقة
+            if (!workerStaticData[workerId]) {
+                workerStaticData[workerId] = {
+                    previousLocation: currentLocation,
+                    staticStartTime: now
+                };
+            } else {
+                const prevLocation = workerStaticData[workerId].previousLocation;
+                if (isLocationStatic(prevLocation, currentLocation)) {
+                    // إذا كان الموقع ثابت بالفعل، لا نحدث staticStartTime
+                    if (!workerStaticData[workerId].staticStartTime) {
+                        workerStaticData[workerId].staticStartTime = now;
+                    }
+                } else {
+                    // حدث تغيير في الموقع (أكثر من متر)
+                    workerStaticData[workerId].previousLocation = currentLocation;
+                    workerStaticData[workerId].staticStartTime = now;
+                }
+            }
+
+            const staticDuration = now - workerStaticData[workerId].staticStartTime;
+            console.log(`⌛ تحقق نهائي: العامل ${workerId} غير نشط منذ ${Math.round(elapsed / 1000)} ثانية.`);
+            console.log(`📍 مدة ثبات الموقع: ${Math.round(staticDuration / 1000)} ثانية.`);
+
+            // إذا كان العامل نشطاً أو تم تحديث نشاطه مؤخرًا فلن نقوم بإلغاء الطلب
+            if (isActive || (lastActive && elapsed < 60 * 1000)) {
+                console.log("✅ العامل عاد قبل انتهاء المهلة أو تم تغيير نشاطه، لن يتم إعادة تعيين الطلب.");
+                return;
+            }
+
+            // التحقق من شرط الوقت (15 دقيقة) سواء من وقت الانقطاع أو من زمن الثبات
+            if (elapsedSinceDisconnect >= 15 * 60 * 1000 || staticDuration >= 15 * 60 * 1000) {
+                const distance = calculateDistance(userLocation, currentLocation);
+                console.log("المسافة من المستخدم:", distance);
+                if (distance * 1000 > 500) {
+                    // تحديث حالة الطلب إلى pending
+                    firebase.database().ref(`workRequests/${requestId}`).update({
+                        status: 'pending',
+                        note: 'تم إعادة تعيين الطلب بسبب توقف العامل عن النشاط أو ثبات الموقع لمدة 15 دقيقة. سيتم انتظار قبول عامل آخر لطلبك.'
+                    })
+                    .then(() => {
+                        // عند تغيير حالة الطلب إلى pending، نقوم بإزالة بيانات التتبع ورسم المسار
+                        removeTrackingData();
+                        showCancellationNotice("تم إلغاء الطلب لأن العامل توقف عن النشاط أو لم يتحرك من موقعه لمدة 15 دقيقة. سيتم انتظار قبول عامل آخر لطلبك.");
+                    })
+                    .catch((err) => console.error("خطأ في تحديث حالة الطلب:", err));
+                    return;
+                }
+            } else {
+                console.log("✅ العامل عاد أو تغير موقعه، لن يتم إعادة تعيين الطلب.");
+            }
+        })
+        .catch(err => console.error("خطأ في التحقق النهائي من حالة العامل:", err));
+}
+
+// دالة إزالة بيانات التتبع ورسم المسار
+function removeTrackingData() {
+    const trackingPanel = document.getElementById('trackingPanel');
+    if (trackingPanel) {
+        trackingPanel.style.display = 'none';
+    }
+    if (map.getLayer('route-user')) {
+        map.removeLayer('route-user');
+        map.removeSource('route-user');
+    }
+    // تعطيل رسم المسار لأن حالة الطلب أصبحت pending
+    window.trackingCancelled = true;
+}
+
+// دالة عرض النافذة المنبثقة مع النص المعدل
+function showCancellationNotice(message) {
+    const notice = document.createElement('div');
+    notice.className = 'notification';
+    notice.style.zIndex = 1100; // لضمان ظهوره فوق باقي العناصر
+    notice.innerHTML = `<p>${message}</p><button onclick="this.parentElement.remove()">حسناً</button>`;
+    document.body.appendChild(notice);
+}
+
+
+
+
+
+
+
+
+
+// تعريف دالة رفع الصورة باستخدام Firebase Storage
+
+  // دالة رفع الصورة عبر إرسال الملف إلى الخادم
+  function uploadImage(file) {
+  const formData = new FormData();
+  formData.append('image', file);
+  
+  return fetch('/upload', {
+    method: 'POST',
+    body: formData
+  })
+  .then(response => response.json())
+  .then(data => {
+    console.log("Response from upload:", data);
+    let imageUrl = data.secure_url;
+    if (imageUrl) {
+      // إذا كان الرابط نسبيًا، نضيف له النطاق المناسب
+      if (!imageUrl.startsWith("http")) {
+        imageUrl = "https://yourdomain.com" + imageUrl; // استبدل https://yourdomain.com بنطاق موقعك
+      }
+      console.log("الرابط النهائي للصورة:", imageUrl);
+      return imageUrl;
+    } else {
+      throw new Error("Upload failed: No secure_url in response");
+    }
+  })
+  .catch(error => {
+    console.error("❌ Upload error:", error);
+    throw error;
+  });
+}
+
+
+  
+  // ربط حدث الضغط على زر الرفع
+  document.addEventListener("DOMContentLoaded", function() {
+    const uploadButton = document.getElementById('uploadButton');
+    if (uploadButton) {
+        uploadButton.addEventListener('click', () => {
+            const imageInput = document.getElementById('imageInput');
+            if (imageInput.files.length === 0) {
+                alert("الرجاء اختيار صورة للرفع");
+                return;
+            }
+            uploadImage(imageInput.files[0]);
+        });
+    }
+});
+
+
+
+// دالة التحقق من عدد الطلبات المعلقة للمستخدم
+function canSubmitNewRequest(userId) {
+  return firebase.database().ref('workRequests').orderByChild('userId').equalTo(userId)
+    .once('value')
+    .then(snapshot => {
+      let pendingCount = 0;
+      snapshot.forEach(child => {
+        if (child.val().status === 'pending') {
+          pendingCount++;
+        }
+      });
+      console.log("عدد الطلبات المعلقة للمستخدم:", pendingCount);
+      return pendingCount < 1; // يسمح بطلب واحد فقط
+    })
+    .catch(error => {
+      console.error("خطأ أثناء استعلام الطلبات:", error);
+      return false;
+    });
+}
+
+
+
+// دالة إرسال الطلب مع الحقول الجديدة (الوصف، رقم الهاتف، صورة العمل)
+function submitRequest() {
+    // إظهار مؤشر التحميل
+    document.getElementById('loadingIndicator').style.display = 'block';
+
+    canSubmitNewRequest(currentUserId)
+        .then((canSubmit) => {
+            if (!canSubmit) {
+                console.error("تم تقديم طلب واحد بالفعل للمستخدم:", currentUserId);
+                // إخفاء مؤشر التحميل عند عدم إمكانية إرسال الطلب
+                document.getElementById('loadingIndicator').style.display = 'none';
+                alert("لقد قمت بتقديم طلب واحد بالفعل. يرجى إنهاء الطلب الحالي أو إلغاؤه قبل تقديم طلب جديد.");
+                return;
+            }
+
+            console.log("✅ المستخدم يمكنه تقديم طلب جديد:", currentUserId);
+            navigator.geolocation.getCurrentPosition((position) => {
+                const userLocation = {
+                    lat: position.coords.latitude,
+                    lng: position.coords.longitude
+                };
+                console.log("📍 تم الحصول على موقع المستخدم:", userLocation);
+
+                const workType = document.getElementById('workTypeInput').value;
+                const budget = document.getElementById('budgetInput').value;
+                const time = document.getElementById('timeInput').value;
+                const description = document.getElementById('descriptionInput').value;
+                const phone = document.getElementById('phoneInputRequest')
+                    ? document.getElementById('phoneInputRequest').value
+                    : "";
+
+                // التحقق من صحة القيم المدخلة
+                if (!workType || !budget || !time || isNaN(userLocation.lng) || isNaN(userLocation.lat)) {
+                    document.getElementById('loadingIndicator').style.display = 'none';
+                    alert('⚠️ يرجى ملء جميع الحقول وإدخال موقع صحيح.');
+                    return;
+                }
+
+                // استدعاء خدمة عكس التكويد للحصول على اسم المنطقة
+                const reverseGeocodeUrl = `https://api.mapbox.com/geocoding/v5/mapbox.places/${userLocation.lng},${userLocation.lat}.json?access_token=${mapboxgl.accessToken}&types=region&language=ar`;
+                console.log("🔗 Reverse Geocode URL:", reverseGeocodeUrl);
+
+                fetch(reverseGeocodeUrl)
+                    .then(response => {
+                        if (!response.ok) {
+                            throw new Error(`HTTP error! Status: ${response.status}`);
+                        }
+                        return response.json();
+                    })
+                    .then(geoData => {
+                        console.log("🌍 GeoData Response:", geoData);
+                        let regionName = "";
+                        if (geoData.features && geoData.features.length > 0) {
+                            regionName = geoData.features[0].place_name;
+                        } else {
+                            console.warn("⚠️ لم يتم العثور على بيانات للمنطقة.");
+                        }
+
+                        // إعداد بيانات الطلب
+                        const requestData = {
+                            workType: workType,
+                            budget: budget,
+                            time: time,
+                            description: description,
+                            phone: phone,
+                            media: [],
+                            location: {
+                                lng: parseFloat(userLocation.lng),
+                                lat: parseFloat(userLocation.lat)
+                            },
+                            region: regionName,
+                            status: "pending",
+                            workerId: window.selectedWorkerId || null,
+                            userId: currentUserId,
+                            submittedAt: Date.now()
+                        };
+
+                        console.log("📝 بيانات الطلب قبل رفع الملفات:", requestData);
+
+                        // التعامل مع رفع الملفات (صور/فيديو)
+                        if (selectedFiles.length > 0) {
+                            console.log(`📂 عدد الملفات المرفوعة: ${selectedFiles.length}`);
+                            const uploadPromises = selectedFiles.map(file => uploadImage(file));
+                            
+                            Promise.all(uploadPromises)
+                                .then(urls => {
+                                    requestData.media = urls;
+                                    console.log("✅ تم رفع الملفات:", urls);
+                                    pushRequestData(requestData, userLocation);
+                                })
+                                .catch(error => {
+                                    console.error('🚨 خطأ في رفع الملفات:', error);
+                                    document.getElementById('loadingIndicator').style.display = 'none';
+                                    alert('حدث خطأ أثناء رفع الملفات.');
+                                });
+                        } else {
+                            pushRequestData(requestData, userLocation);
+                        }
+                    })
+                    .catch(err => {
+                        console.error("🚨 خطأ في استرجاع اسم المنطقة:", err);
+                        document.getElementById('loadingIndicator').style.display = 'none';
+                        alert("حدث خطأ أثناء تحديد المنطقة. الرجاء المحاولة مرة أخرى.");
+                    });
+            });
+        })
+        .catch(error => {
+            console.error("🚨 خطأ:", error);
+            document.getElementById('loadingIndicator').style.display = 'none';
+            alert("حدث خطأ أثناء التحقق من إمكانية تقديم الطلب.");
+        });
+}
+
+
+
+
+
+
+
+
+
+
+// ننشئ كائن لتخزين بيانات الطلبات بشكل منفصل لكل معرف
+var ordersData = {};
+
+// دالة لإضافة ماركر الطلب بتصميم جديد باستخدام SVG مع تدرج لوني
+function addRequestMarker(userLocation) {
+  var markerEl = document.createElement('div');
+  
+  // إنشاء عنصر SVG مع مسار لرسم أيقونة الموقع
+  markerEl.innerHTML = `
+    <svg width="40" height="40" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <defs>
+        <linearGradient id="grad1" x1="0%" y1="0%" x2="100%" y2="0%">
+          <stop offset="0%" style="stop-color:#42a5f5;stop-opacity:1" />
+          <stop offset="100%" style="stop-color:#478ed1;stop-opacity:1" />
+        </linearGradient>
+      </defs>
+      <path d="M12 2C8.13 2 5 5.13 5 9C5 13.25 12 22 12 22C12 22 19 13.25 19 9C19 5.13 15.87 2 12 2ZM12 11.5C10.62 11.5 9.5 10.38 9.5 9C9.5 7.62 10.62 6.5 12 6.5C13.38 6.5 14.5 7.62 14.5 9C14.5 10.38 13.38 11.5 12 11.5Z" fill="url(#grad1)"/>
+    </svg>
+  `;
+
+  // تحريك الماركر قليلاً لضبط موقعه
+  markerEl.style.transform = "translate(-20px, -40px)";
+  // إضافة تأثير ظل للماركر
+  markerEl.style.filter = "drop-shadow(0 2px 6px rgba(0,0,0,0.3))";
+
+  window.requestMarker = new mapboxgl.Marker(markerEl)
+    .setLngLat([userLocation.lng, userLocation.lat])
+    .addTo(map);
+
+  console.log("تم إضافة ماركر الطلب بتصميم جديد.");
+}
+
+function pushRequestData(requestData, userLocation) {
+    requestsRef.push(requestData)
+        .then((newRequestRef) => {
+            const requestId = newRequestRef.key;
+            ordersData[requestId] = requestData;
+            
+            // حفظ معرف الطلب في localStorage لاستئناف حالته بعد إعادة تحميل الصفحة
+            localStorage.setItem('currentRequestId', requestId);
+            
+            firebase.database().ref(`orders/${requestId}`).set(requestData);
+            // إخفاء مؤشر التحميل عند نجاح الإرسال
+            document.getElementById('loadingIndicator').style.display = 'none';
+            alert('تم إرسال الطلب بنجاح.');
+            document.getElementById('requestPopup').style.display = 'none';
+            document.getElementById('reviewRequestButton').style.display = 'block';
+            monitorRequestStatus(requestId);
+            sendNotificationsToNearbyWorkers(requestData, userLocation);
+            listenForNegotiationOffers(requestId);
+
+            // استدعاء دالة إضافة الماركر بعد نجاح إرسال الطلب
+            addRequestMarker(userLocation);
+        })
+        .catch((error) => {
+            console.error('❌ خطأ في إرسال الطلب إلى Firebase:', error);
+            document.getElementById('loadingIndicator').style.display = 'none';
+            alert('حدث خطأ أثناء إرسال الطلب. يرجى المحاولة مرة أخرى لاحقًا.');
+        });
+}
+
+
+
+
+
+
+
+document.getElementById('submitRequest').addEventListener('click', submitRequest);
+
+
+function calculateDistance(loc1, loc2) {
+    if (!loc1 || !loc2) {
+        console.error("بيانات الموقع غير متوفرة لحساب المسافة");
+        return 0;
+    }
+    const lat1 = parseFloat(loc1.lat);
+    const lng1 = parseFloat(loc1.lng);
+    const lat2 = parseFloat(loc2.lat);
+    const lng2 = parseFloat(loc2.lng);
+    const R = 6371; // نصف قطر الأرض بالكيلومترات
+    const dLat = (lat2 - lat1) * Math.PI / 180;
+    const dLng = (lng2 - lng1) * Math.PI / 180;
+    const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+              Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+              Math.sin(dLng / 2) * Math.sin(dLng / 2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    const distance = R * c;
+    console.log(`المسافة المحسوبة بين الموقعين: ${distance.toFixed(2)} كم`);
+    return distance;
+}
+
+
+function calculateETAWithPromise(workerLocation, userLocation) {
+    return new Promise((resolve, reject) => {
+        const directionsUrl = `https://api.mapbox.com/directions/v5/mapbox/driving/${workerLocation.lng},${workerLocation.lat};${userLocation.lng},${userLocation.lat}?access_token=${mapboxgl.accessToken}`;
+        fetch(directionsUrl)
+            .then(response => response.json())
+            .then(data => {
+                if (!data.routes || data.routes.length === 0) {
+                    console.error("لم يتم استرجاع بيانات الطريق من API");
+                    return reject("No routes found");
+                }
+                const duration = data.routes[0].duration; // بالثواني
+                const etaMinutes = Math.round(duration / 60);
+                console.log("تم حساب ETA بنجاح", { etaMinutes });
+                resolve(etaMinutes);
+            })
+            .catch(err => {
+                console.error("خطأ في استدعاء API لحساب ETA:", err);
+                reject(err);
+            });
+    });
+}
+
+function startWorkerTracking(workerId, userLocation, workerName) {
+    const trackingPanel = document.getElementById('trackingPanel');
+    const trackingInfo = document.getElementById('trackingInfo');
+    const workerRef = database.ref(`workers/${workerId}/location`);
+    workerRef.on('value', (snapshot) => {
+        const workerLocation = snapshot.val();
+        if (!workerLocation) {
+            console.error("لا يوجد موقع محدث للعامل:", workerId);
+            return;
+        }
+        const distance = calculateDistance(userLocation, workerLocation);
+        calculateETAWithPromise(workerLocation, userLocation)
+            .then((etaMinutes) => {
+                trackingInfo.innerText = `العامل: ${workerName}\nالمسافة: ${distance.toFixed(2)} كم\nالوقت المقدر للوصول: ${etaMinutes} دقيقة`;
+                showRouteToUser(workerLocation, userLocation);
+            })
+            .catch((err) => {
+                console.error("خطأ في حساب ETA أثناء التتبع:", err);
+            });
+    });
+}
+
+
+document.addEventListener("DOMContentLoaded", () => {
+  const storedRequestId = localStorage.getItem('currentRequestId');
+  if (storedRequestId) {
+    currentRequestId = storedRequestId;
+    monitorRequestStatus(currentRequestId);
+    document.getElementById('reviewRequestButton').style.display = 'block';
+    
+    // استرجاع بيانات الطلب وإعادة رسم الماركر فقط إذا لم تكن حالة الطلب finished
+    firebase.database().ref(`workRequests/${currentRequestId}`).once('value')
+      .then(snapshot => {
+         const requestData = snapshot.val();
+         if (requestData && requestData.location && requestData.status !== 'finished') {
+            addRequestMarker(requestData.location);
+         }
+      })
+      .catch(error => console.error("حدث خطأ أثناء جلب بيانات الطلب:", error));
+  }
+});
+
+
+
+// مثال لدالة فتح نافذة مراجعة الطلب بعد التعديل
+database.ref(`workRequests/${currentRequestId}`).once('value')
+.then(snapshot => {
+  const requestData = snapshot.val();
+  if (!requestData) {
+    console.error("بيانات الطلب غير موجودة");
+    return;
+  }
+  // تعبئة الحقول الأخرى
+  document.getElementById('reviewWorkType').value = requestData.workType || "";
+  document.getElementById('reviewBudget').value = requestData.budget || "";
+  document.getElementById('reviewTime').value = requestData.time || "";
+  document.getElementById('reviewDescription').value = requestData.description || "";
+  document.getElementById('reviewPhone').value = requestData.phone || "";
+  
+  // تحميل الصور من حقل media وعرضها في نافذة التعديل
+  loadReviewMedia(requestData.media);
+  
+  // عرض النافذة
+  document.getElementById('reviewPopup').style.display = 'block';
+})
+.catch(error => {
+  console.error("حدث خطأ أثناء جلب بيانات الطلب:", error);
+});
+
+// تعريف المتغيرات العالمية لتخزين الصور والملفات الجديدة
+var currentMediaArray = [];
+var newFilesArray = [];
+
+function loadReviewMedia(mediaArray) {
+  // تحديث المتغير العالمي
+  currentMediaArray = mediaArray;
+  const container = document.getElementById('reviewMediaPreviewContainer');
+  container.innerHTML = "";
+  if (mediaArray && mediaArray.length > 0) {
+    mediaArray.forEach((url, index) => {
+      const mediaContainer = document.createElement("div");
+      mediaContainer.style.position = "relative";
+
+      const img = document.createElement("img");
+      img.src = url;
+      img.style.width = "80px";
+      img.style.height = "80px";
+      img.style.objectFit = "cover";
+      img.style.border = "1px solid #ccc";
+      img.style.borderRadius = "5px";
+      mediaContainer.appendChild(img);
+
+      // زر إزالة الصورة
+      const removeButton = document.createElement("span");
+      removeButton.innerHTML = "×";
+      removeButton.style.position = "absolute";
+      removeButton.style.top = "-5px";
+      removeButton.style.right = "-5px";
+      removeButton.style.background = "red";
+      removeButton.style.color = "white";
+      removeButton.style.width = "20px";
+      removeButton.style.height = "20px";
+      removeButton.style.display = "flex";
+      removeButton.style.justifyContent = "center";
+      removeButton.style.alignItems = "center";
+      removeButton.style.borderRadius = "50%";
+      removeButton.style.cursor = "pointer";
+      removeButton.addEventListener("click", function() {
+        // إزالة الصورة من المصفوفة المحلية وتحديث المعاينة
+        mediaArray.splice(index, 1);
+        loadReviewMedia(mediaArray);
+      });
+      mediaContainer.appendChild(removeButton);
+      container.appendChild(mediaContainer);
+    });
+  } else {
+    container.innerHTML = "<p>لا توجد صور مرفقة.</p>";
+  }
+}
+
+document.addEventListener("DOMContentLoaded", function() {
+  // إضافة مستمع حدث على عنصر اختيار الملفات ليتم عرض المعاينة فور اختيار الصورة
+  document.getElementById('reviewImageInput').addEventListener('change', function() {
+    const files = this.files;
+    if (files.length > 0) {
+      for (let i = 0; i < files.length; i++) {
+        // حفظ الملف في مصفوفة newFilesArray للرفع لاحقاً
+        newFilesArray.push(files[i]);
+        // إنشاء رابط معاينة محلي للملف باستخدام URL.createObjectURL
+        const localUrl = URL.createObjectURL(files[i]);
+        currentMediaArray.push(localUrl);
+      }
+      // تحديث عرض المعاينة فوراً
+      loadReviewMedia(currentMediaArray);
+    }
+  });
+
+  // يمكن ترك مستمع حدث زر "رفع الصورة" كما هو إذا كان له استخدام آخر، 
+  // أو إزالته لتجنب الازدواجية، لأن المعاينة أصبحت فورية بعد اختيار الملف
+
+  // عند الضغط على زر "تحديث الطلب" (updateRequestButton) يتم رفع الملفات الجديدة وتحديث عقدة media
+  document.getElementById('updateRequestButton').addEventListener('click', function() {
+    if (newFilesArray.length > 0) {
+      // رفع جميع الملفات الجديدة
+      const uploadPromises = newFilesArray.map(file => uploadImage(file));
+      Promise.all(uploadPromises)
+        .then(urls => {
+          // استبدال روابط المعاينة المؤقتة (blob:) بروابط الصور المرفوعة
+          currentMediaArray = currentMediaArray.filter(url => !url.startsWith("blob:"));
+          currentMediaArray = currentMediaArray.concat(urls);
+          // هنا يُفترض أن updateRequest تقوم بتحديث بيانات الطلب في Firebase مع currentMediaArray
+          updateRequest();
+          // تفريغ قائمة الملفات الجديدة بعد الرفع
+          newFilesArray = [];
+        })
+        .catch(error => {
+          console.error('Error uploading images:', error);
+        });
+    } else {
+      // إذا لم تكن هناك ملفات جديدة، يتم التحديث مباشرة
+      updateRequest();
+    }
+  });
+
+  // باقي أكواد التهيئة أو المستمعين الأخرى
+});
+
+
+document.addEventListener("DOMContentLoaded", function() {
+  document.getElementById('reviewUploadButton').style.display = 'none';
+});
+
+
+
+
+
+
+// وظيفة لفتح نافذة مراجعة الطلب وتحميل بيانات الطلب الحالي
+function openReviewPopup() {
+    if (!currentRequestId) {
+        console.error("🚨 لم يتم تحديد معرف الطلب للمراجعة.");
+        alert("⚠️ لا يوجد طلب لتعديله.");
+        return;
+    }
+
+    console.log("📌 فتح نافذة مراجعة وتعديل الطلب للطلب:", currentRequestId);
+
+    // قراءة بيانات الطلب من قاعدة البيانات
+    database.ref(`workRequests/${currentRequestId}`).once('value')
+    .then(snapshot => {
+        const requestData = snapshot.val();
+        if (!requestData) {
+            console.error("🚨 بيانات الطلب غير موجودة للمعرف:", currentRequestId);
+            alert("❌ لا يمكن إيجاد بيانات الطلب.");
+            return;
+        }
+
+        // ✅ التأكد من أن الطلب لم يتم إلغاؤه قبل السماح بالتعديل
+        if (requestData.status && requestData.status.trim() === 'canceled_by_worker') {
+            console.warn("⚠️ لا يمكن تعديل الطلب لأنه تم إلغاؤه من قبل العامل.");
+            alert("🚫 لا يمكنك تعديل هذا الطلب لأنه تم إلغاؤه من قبل العامل.");
+            return;
+        }
+
+        // ✅ ملء الحقول بالبيانات الحالية
+        document.getElementById('reviewWorkType').value = requestData.workType || "";
+        document.getElementById('reviewBudget').value = requestData.budget || "";
+        document.getElementById('reviewTime').value = requestData.time || "";
+        document.getElementById('reviewDescription').value = requestData.description || "";
+        document.getElementById('reviewPhone').value = requestData.phone || "";
+
+        // ✅ عرض نافذة التعديل فقط إذا لم يكن الطلب ملغياً
+        document.getElementById('reviewPopup').style.display = 'block';
+        console.log("✅ تم تحميل بيانات الطلب في نافذة المراجعة.");
+    })
+    .catch(error => {
+        console.error("🚨 خطأ في جلب بيانات الطلب:", error);
+        alert("❌ حدث خطأ أثناء جلب بيانات الطلب.");
+    });
+}
+
+
+// وظيفة لتحديث بيانات الطلب في قاعدة البيانات
+function updateRequest() {
+    if (!currentRequestId) {
+        console.error("لا يوجد معرف طلب للتحديث.");
+        alert("لا يوجد طلب لتحديثه.");
+        return;
+    }
+
+    // تحضير البيانات المحدثة
+    const updatedData = {
+        workType: document.getElementById('reviewWorkType').value,
+        budget: document.getElementById('reviewBudget').value,
+        time: document.getElementById('reviewTime').value,
+        description: document.getElementById('reviewDescription').value,
+        phone: document.getElementById('reviewPhone').value,
+        media: currentMediaArray // تحديث قائمة الصور بعد الحذف أو التعديل
+    };
+
+    console.log("المعلومات الجديدة التي سيتم تحديثها:", updatedData);
+
+    // جلب البيانات القديمة لمراقبتها قبل التحديث
+    database.ref(`workRequests/${currentRequestId}`).once('value')
+        .then(snapshot => {
+            console.log("البيانات القديمة للطلب:", snapshot.val());
+
+            // تحديث بيانات الطلب في Firebase
+            database.ref(`workRequests/${currentRequestId}`).update(updatedData)
+                .then(() => {
+                    console.log("تم تحديث الطلب بنجاح.");
+                    alert("تم تحديث الطلب بنجاح.");
+                    document.getElementById('reviewPopup').style.display = 'none';
+                })
+                .catch(error => {
+                    console.error("خطأ في تحديث الطلب:", error);
+                    alert("حدث خطأ أثناء تحديث الطلب.");
+                });
+        })
+        .catch(error => {
+            console.error("خطأ في جلب البيانات القديمة للطلب:", error);
+        });
+}
+
+
+function openReviewPopupForUser(userId) {
+  firebase.database().ref('workRequests').orderByChild('userId').equalTo(userId)
+    .once('value')
+    .then(snapshot => {
+      let pendingRequests = [];
+      snapshot.forEach(child => {
+        let data = child.val();
+        if (data.status === 'pending') {
+          pendingRequests.push({ id: child.key, ...data });
+        }
+      });
+      console.log("الطلبات المعلقة للمستخدم:", pendingRequests);
+      if (pendingRequests.length === 0) {
+        alert("لا توجد طلبات معلقة للتعديل.");
+        return;
+      }
+      // إذا كان هناك طلب واحد فقط، نقوم بفتح نافذة التعديل مباشرة
+      if (pendingRequests.length === 1) {
+        openEditRequestWindow(pendingRequests[0]);
+        return;
+      }
+      let reviewContent = "اختر الطلب الذي تريد تعديله أو حذفه:\n";
+      pendingRequests.forEach((req, index) => {
+        reviewContent += `${index + 1}. ${req.workType} - الميزانية: ${req.budget} - التاريخ: ${new Date(req.submittedAt).toLocaleString()}\n`;
+      });
+      let choice = prompt(reviewContent + "\nأدخل رقم الطلب للتعديل:");
+      if (choice) {
+        let selectedRequest = pendingRequests[choice - 1];
+        if (selectedRequest) {
+          console.log("الطلب المختار للتعديل:", selectedRequest);
+          openEditRequestWindow(selectedRequest);
+        } else {
+          alert("الاختيار غير صحيح.");
+          console.error("الاختيار غير صحيح في مراجعة الطلبات.");
+        }
+      }
+    })
+    .catch(error => {
+      console.error("خطأ أثناء استعلام الطلبات:", error);
+    });
+}
+
+
+function openEditRequestWindow(request) {
+    // تعيين معرف الطلب الحالي لتحديثه لاحقاً
+    currentRequestId = request.id;
+    console.log("فتح نافذة تعديل الطلب للطلب:", request);
+    // تعبئة الحقول في نافذة المراجعة بالبيانات القادمة من الطلب
+    document.getElementById('reviewWorkType').value = request.workType || "";
+    document.getElementById('reviewBudget').value = request.budget || "";
+    document.getElementById('reviewTime').value = request.time || "";
+    document.getElementById('reviewDescription').value = request.description || "";
+    document.getElementById('reviewPhone').value = request.phone || "";
+    // تحميل الصور من حقل media وعرضها في المعاينة
+    loadReviewMedia(request.media);
+    // إظهار نافذة المراجعة
+    document.getElementById('reviewPopup').style.display = 'block';
+}
+
+
+
+
+// وظيفة لحذف الطلب من قاعدة البيانات والخريطة
+function deleteRequest() {
+    if (!currentRequestId) {
+        console.error("لا يوجد معرف طلب للحذف.");
+        alert("لا يوجد طلب لحذفه.");
+        return;
+    }
+    if (!confirm("هل أنت متأكد من حذف الطلب؟")) {
+        return;
+    }
+    console.log("تحديث حالة الطلب إلى 'deleted' بالمعرف:", currentRequestId);
+    database.ref(`workRequests/${currentRequestId}`).update({ status: 'deleted' })
+    .then(() => {
+        console.log("تم تحديث حالة الطلب إلى 'deleted' بنجاح.");
+        alert("تم حذف الطلب بنجاح .");
+        // إخفاء نافذة مراجعة وتعديل الطلب تلقائيًا
+        document.getElementById('reviewPopup').style.display = 'none';
+        removeRequestMarker(currentRequestId);
+        localStorage.removeItem('currentRequestId');
+    })
+    .catch(error => {
+        console.error("خطأ في تحديث حالة الطلب:", error);
+        alert("حدث خطأ أثناء تحديث حالة الطلب.");
+    });
+}
+
+
+
+
+
+// دالة مساعدة لإزالة ماركر الطلب من الخريطة (إذا كنت تستخدم واحداً)
+function removeRequestMarker(requestId) {
+    if(window.requestMarker) {
+        window.requestMarker.remove();
+        window.requestMarker = null;
+        console.log("تم إزالة ماركر الطلب من الخريطة.");
+    } else {
+        console.warn("لم يتم العثور على ماركر الطلب لإزالته.");
+    }
+}
+
+// إضافة المستمعين للأحداث للعناصر الجديدة
+// تعريف المتغير currentUserId في مكان عام قبل استخدامه
+var currentUserId = "user_123"; // يجب أن يكون هذا المعرّف هو معرّف المستخدم الحالي
+
+document.getElementById('reviewRequestButton').addEventListener('click', function() {
+  openReviewPopupForUser(currentUserId);
+});
+
+document.getElementById('updateRequestButton').addEventListener('click', updateRequest);
+document.getElementById('deleteRequestButton').addEventListener('click', deleteRequest);
+document.getElementById('closeReviewPopup').addEventListener('click', () => {
+    document.getElementById('reviewPopup').style.display = 'none';
+});
+
+
+function sendPusherNotification(workerId, message) {
+    fetch('http://localhost:7000/send-notification', { // استخدم المنفذ 7000 الخاص بخادمك
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ workerId, message })
+    })
+    .then(response => {
+        if (!response.ok) {
+            throw new Error(`خطأ في إرسال الإشعار: ${response.statusText}`);
+        }
+        return response.json();
+    })
+    .then(data => console.log("تم إرسال الإشعار بنجاح:", data))
+    .catch(error => console.error("فشل إرسال الإشعار:", error));
+}
+
+
+function monitorWorkerArrival(workerLocation, userLocation, workerId, radius = 500) {
+    const distanceInKm = calculateDistance(userLocation, workerLocation);
+    console.log("المسافة المحسوبة (بالكم):", distanceInKm);
+    
+    if (distanceInKm * 1000 <= radius) {
+        console.log("العامل قريب من الموقع، بدء استرجاع بيانات العامل باستخدام workerId:", workerId);
+        
+        // استرجاع كافة بيانات العامل للتأكد من الهيكلية
+        database.ref(`workers/${workerId}`).once('value')
+            .then(snapshot => {
+                console.log("بيانات العامل:", snapshot.val());
+                
+                // محاولة استرجاع رقم الهاتف من البيانات
+                const workerPhone = snapshot.val() && snapshot.val().phone;
+                if (workerPhone) {
+                    console.log("تم استرجاع رقم الهاتف بنجاح:", workerPhone);
+                    displayNotification('العامل قريب من موقعك!', workerPhone);
+                } else {
+                    console.error("لم يتم العثور على رقم الهاتف في بيانات العامل.");
+                    displayNotification('العامل قريب من موقعك!', 'رقم غير متوفر');
+                }
+            })
+            .catch(error => {
+                console.error("خطأ في استرجاع بيانات العامل:", error);
+                displayNotification('العامل قريب من موقعك!', 'رقم غير متوفر');
+            });
+    } else {
+        console.log("المسافة أكبر من 500 متر.");
+    }
+}
+
+
+
+
+function calculateETA(workerLocation, jobLocation) {
+    const directionsUrl = `https://api.mapbox.com/directions/v5/mapbox/driving/${workerLocation.lng},${workerLocation.lat};${jobLocation.lng},${jobLocation.lat}?access_token=${mapboxgl.accessToken}`;
+    fetch(directionsUrl)
+        .then(response => response.json())
+        .then(data => {
+            const duration = data.routes[0].duration; // الوقت بالثواني
+            const etaMinutes = Math.round(duration / 60);
+            displayNotification(`وقت الوصول المتوقع: ${etaMinutes} دقيقة.`);
+        })
+        .catch(console.error);
+}
+
+
+
+
+
+        
+
+
+function sendNotificationsToNearbyWorkers(requestData, userLocation) {
+    const radius = 15;  // نصف القطر المطلوب (15 كم)
+    console.log("تم ضبط نصف القطر على:", radius, "كم");
+    const workersRef = database.ref('workers');
+    workersRef.once('value')
+        .then((snapshot) => {
+            snapshot.forEach((workerSnapshot) => {
+                const workerData = workerSnapshot.val();
+                if (!workerData || !workerData.location) {
+                    console.error("🚨 بيانات العامل غير متوفرة أو الموقع غير صالح:", workerSnapshot.key);
+                    return;
+                }
+                const distance = calculateDistance(userLocation, workerData.location);
+                console.log(`المسافة للعامل ${workerSnapshot.key}: ${distance.toFixed(2)} كم`);
+                console.log("الموقع المُرسل:", userLocation, "وموقع العامل:", workerData.location);
+                
+                if (distance <= radius) {
+                    console.log(`📢 العامل ${workerSnapshot.key} داخل النطاق وسيتم إرسال إشعار.`);
+                    sendPusherNotification(workerSnapshot.key, `طلب ${requestData.workType} في منطقتك.`, "طلب جديد متاح!");
+                } else {
+                    console.warn(`⚠️ العامل ${workerSnapshot.key} خارج نطاق الـ ${radius} كم.`);
+                }
+            });
+        })
+        .catch((error) => {
+            console.error('خطأ في تحميل بيانات العمال:', error);
+            alert('حدث خطأ أثناء جلب بيانات العمال. يرجى المحاولة مرة أخرى.');
+        });
+}
+
+
+requestsRef.once('value', (snapshot) => {
+    if (snapshot.exists()) {
+        const updates = {}; // لتجميع الطلبات غير الصالحة للإزالة
+        snapshot.forEach((childSnapshot) => {
+            const request = childSnapshot.val();
+
+            // التحقق من صلاحية الطلب
+            if (!request || !request.location || typeof request.location.lat !== 'number' || typeof request.location.lng !== 'number') {
+                console.warn(`طلب غير مكتمل أو فارغ: ${childSnapshot.key}`, request);
+                updates[childSnapshot.key] = null; // تحديد الإزالة
+            } else {
+                console.log(`طلب صالح: ${childSnapshot.key}`, request);
+                // هنا يمكنك متابعة معالجة الطلبات الصالحة
+            }
+        });
+
+        // إزالة الطلبات غير الصالحة دفعة واحدة
+        if (Object.keys(updates).length > 0) {
+            requestsRef.update(updates)
+                .then(() => console.log("تم حذف الطلبات غير الصالحة."))
+                .catch((error) => console.error("خطأ أثناء حذف الطلبات غير الصالحة:", error));
+        } else {
+            console.log("لا توجد طلبات غير صالحة للإزالة.");
+        }
+    } else {
+        console.warn("لم يتم العثور على أي طلبات في قاعدة البيانات.");
+    }
+});
+
+
+
+
+
+function cleanOldRequests() {
+  requestsRef.once('value', (snapshot) => {
+    if (snapshot.exists()) {
+      const updates = {};
+      snapshot.forEach((childSnapshot) => {
+        const request = childSnapshot.val();
+        const key = childSnapshot.key;
+
+        // إذا كان الطلب موجودًا وفي حالة pending وله submittedAt
+        if (request && request.submittedAt && request.status === "pending") {
+          const submittedTime = request.submittedAt;
+          const currentTime = Date.now();
+          if (currentTime - submittedTime > 5 * 24 * 60 * 60 * 1000) {
+            console.log(`تم تحديد الطلب ${key} كقديم (أكثر من 5 أيام) وسيتم تحديث حالته إلى timeout.`);
+            // تحديث حقل status فقط دون حذف باقي البيانات
+            updates[key + "/status"] = "timeout";
+          }
+        }
+      });
+
+      if (Object.keys(updates).length > 0) {
+        requestsRef.update(updates)
+          .then(() => console.log("تم تحديث حالة الطلبات القديمة بنجاح."))
+          .catch((error) => console.error("خطأ أثناء تحديث الطلبات القديمة:", error));
+      } else {
+        console.log("لا توجد طلبات قديمة لتحديث حالتها.");
+      }
+    } else {
+      console.warn("لم يتم العثور على أي طلبات في قاعدة البيانات.");
+    }
+  });
+}
+
+
+
+
+
+
+
+// استدعاء الدالة عند تحميل الصفحة
+cleanOldRequests();
+
+
+
+
+// تعريف كائن لتخزين الماركرات
+var workerMarkers = {};
+
+// كائن لتخزين الماركرات
+var workerMarkers = {};
+
+// كائن لتخزين مراجع المستمعين لكل عامل
+var workerListeners = {};
+
+// دالة إنشاء/تحديث الماركر مع إضافة بيانات تتبع
+function updateWorkerMarker(workerId, location) {
+  try {
+    // إنشاء العنصر الخاص بالماركر مع حدث النقر
+    var customMarker = document.createElement('div');
+    customMarker.innerHTML = '👷‍♂️';
+    customMarker.style.fontSize = '30px';
+    customMarker.style.width = '30px';
+    customMarker.style.height = '30px';
+    // إضافة سمة data-worker-id لتتبع المعرف
+    customMarker.setAttribute('data-worker-id', workerId);
+    
+    // إضافة حدث النقر على العنصر مع تسجيل بيانات إضافية
+    customMarker.addEventListener('click', function(event) {
+      console.log("تم النقر على الماركر. المعرف:", event.currentTarget.getAttribute('data-worker-id'));
+      onWorkerMarkerClick(workerId);
+    });
+
+    if (!workerMarkers[workerId]) {
+      workerMarkers[workerId] = new mapboxgl.Marker(customMarker)
+        .setLngLat([location.lng, location.lat])
+        .addTo(map);
+      console.log(`تم إنشاء ماركر جديد للعامل ${workerId} في الموقع:`, location);
+    } else {
+      workerMarkers[workerId].setLngLat([location.lng, location.lat]);
+      console.log(`تم تحديث موقع ماركر العامل ${workerId} إلى:`, location);
+    }
+  } catch (error) {
+    console.error(`خطأ أثناء تحديث ماركر العامل ${workerId}:`, error);
+  }
+}
+
+
+// دالة إزالة الماركر للعامل
+function removeWorkerMarker(workerId) {
+  try {
+    if (workerMarkers[workerId]) {
+      console.log(`سيتم إزالة ماركر العامل ${workerId}`);
+      workerMarkers[workerId].remove();
+      delete workerMarkers[workerId];
+    }
+  } catch (error) {
+    console.error(`خطأ أثناء إزالة ماركر العامل ${workerId}:`, error);
+  }
+}
+
+
+// دالة بدء تتبع العامل مع إدارة المستمعين
+function startTracking(workerId) {
+  try {
+    // إذا كان هناك مستمع سابق لنفس العامل نقوم بإلغائه أولاً
+    if (workerListeners[workerId]) {
+      database.ref(`workers/${workerId}`).off('value', workerListeners[workerId]);
+    }
+    const workerRef = database.ref(`workers/${workerId}`);
+    const listener = (snapshot) => {
+      const workerData = snapshot.val();
+      // التأكد من أن قيمة active تُعتبر نشطة سواء كانت true أو "true"
+      const isActive = (workerData.active === true || workerData.active === 'true');
+      // إضافة شرط التحقق من وجود اسم العامل
+      if (workerData && workerData.location && isActive && workerData.name) {
+        updateWorkerMarker(workerId, workerData.location);
+      } else {
+        // إذا لم يكن هناك اسم أو بيانات غير مكتملة، نحذف الماركر
+        removeWorkerMarker(workerId);
+        console.log(`تم إزالة ماركر العامل ${workerId} لأنه ${
+          !workerData.name ? 'لا يحتوي على اسم' : 'غير نشط أو بياناته غير مكتملة'
+        }.`);
+      }
+    };
+    workerRef.on('value', listener);
+    workerListeners[workerId] = listener;
+  } catch (error) {
+    console.error(`خطأ أثناء بدء تتبع العامل ${workerId}:`, error);
+  }
+}
+
+
+// دالة التعامل مع حدث النقر على الماركر
+function onWorkerMarkerClick(workerId) {
+  console.log("🟡 تم النقر على الماركر. المعرّف:", workerId);
+
+  // استرجاع بيانات العامل من workers أولًا
+  firebase.database().ref(`workers/${workerId}`).once('value')
+    .then((snapshot) => {
+      const workerData = snapshot.val();
+
+      if (!workerData) {
+        console.warn(`⚠️ لم يتم العثور على بيانات العامل للمعرّف: ${workerId}`);
+        return;
+      }
+
+      // التحقق مما إذا كان العامل نشطًا
+      if (!workerData.active) {
+        console.warn(`🚨 العامل ${workerId} غير نشط، لن يتم استرجاع الاسم.`);
+        return;
+      }
+
+      // التحقق مما إذا كان هناك اسم
+      if (workerData.name) {
+        console.log(`✅ اسم العامل المُسترجَع: ${workerData.name}`);
+      } else {
+        console.warn(`⚠️ لم يتم العثور على اسم العامل في workers. سيتم البحث في activeWorkers.`);
+        
+        // البحث عن الاسم في activeWorkers كحل احتياطي
+        firebase.database().ref(`activeWorkers/${workerId}/name`).once('value')
+          .then((activeSnapshot) => {
+            const activeWorkerName = activeSnapshot.val();
+            if (activeWorkerName) {
+              console.log(`🔄 اسم العامل المسترجع من activeWorkers: ${activeWorkerName}`);
+            } else {
+              console.warn(`❌ لم يتم العثور على اسم العامل في أي من العقدتين.`);
+            }
+          })
+          .catch((error) => {
+            console.error(`❌ خطأ أثناء جلب اسم العامل من activeWorkers:`, error);
+          });
+      }
+    })
+    .catch((error) => {
+      console.error(`❌ خطأ أثناء جلب بيانات العامل من workers:`, error);
+    });
+}
+
+
+
+// دالة تتبع بيانات العامل مع التحقق من الخاصية active
+function startTracking(workerId) {
+  try {
+    const workerRef = database.ref(`workers/${workerId}`);
+    workerRef.on('value', (snapshot) => {
+      const workerData = snapshot.val();
+      // عرض الماركر فقط إذا كانت بيانات الموقع موجودة والعامل نشط
+      if (workerData && workerData.location && workerData.active === true) {
+        updateWorkerMarker(workerId, workerData.location);
+      } else {
+        removeWorkerMarker(workerId);
+        console.log(`تم إزالة ماركر العامل ${workerId} لأنه غير نشط أو بياناته غير مكتملة.`);
+      }
+    });
+  } catch (error) {
+    console.error(`خطأ أثناء بدء تتبع العامل ${workerId}:`, error);
+  }
+}
+
+// دالة تحميل العمال وتفعيل التتبع (يُستدعى مرة واحدة فقط عند تحميل الصفحة)
+function loadWorkers() {
+  try {
+    const workersRef = database.ref('workers');
+    workersRef.on('child_added', (snapshot) => {
+      console.log(`تم إضافة عامل جديد: ${snapshot.key}`, snapshot.val());
+      startTracking(snapshot.key);
+    });
+  } catch (error) {
+    console.error('خطأ أثناء تحميل بيانات العمال:', error);
+  }
+}
+
+// تنظيف جميع الماركرات عند تحميل الصفحة واستدعاء loadWorkers مرة واحدة فقط
+document.addEventListener('DOMContentLoaded', function() {
+  // إزالة الماركرات القديمة إذا وجدت
+  Object.values(workerMarkers).forEach(marker => marker.remove());
+  workerMarkers = {};
+  console.log("تم حذف جميع الماركرات القديمة عند تحميل الصفحة.");
+  
+  // استدعاء loadWorkers مرة واحدة
+  loadWorkers();
+});
+
+
+
+
+function showRouteToUser(workerLocation, userLocation) {
+    // التحقق من حالة تعطيل التتبع وعدم رسم المسار
+    if (window.trackingCancelled) {
+        console.log("التتبع ملغى، لن يتم رسم المسار.");
+        return;
+    }
+    const directionsUrl = `https://api.mapbox.com/directions/v5/mapbox/driving/${workerLocation.lng},${workerLocation.lat};${userLocation.lng},${userLocation.lat}?geometries=geojson&access_token=${mapboxgl.accessToken}`;
+    fetch(directionsUrl)
+        .then(response => response.json())
+        .then(data => {
+            const route = data.routes[0].geometry;
+            window.currentRouteToUserData = {
+                type: 'Feature',
+                geometry: route
+            };
+            if (map.getSource('route-user')) {
+                map.getSource('route-user').setData(window.currentRouteToUserData);
+            } else {
+                map.addLayer({
+                    id: 'route-user',
+                    type: 'line',
+                    source: {
+                        type: 'geojson',
+                        data: window.currentRouteToUserData
+                    },
+                    layout: {
+                        'line-join': 'round',
+                        'line-cap': 'round'
+                    },
+                    paint: {
+                        'line-color': '#3887be',
+                        'line-width': 5
+                    }
+                });
+            }
+        })
+        .catch(console.error);
+}
+
+
+
+
+
+
+
+
+// وظيفة عرض موقع العامل على الخريطة
+function showWorkerLocation(workerLocation) {
+    waitUntilMapReady()
+    .then(() => {
+        if (window.workerMarker) {
+            window.workerMarker.setLngLat([workerLocation.lng, workerLocation.lat]);
+        } else {
+            window.workerMarker = new mapboxgl.Marker()
+                .setLngLat([workerLocation.lng, workerLocation.lat])
+                .addTo(map);
+        }
+    })
+    .catch((err) => {
+        console.error("⚠️: 184 تعذر عرض موقع العامل لأن الخريطة ليست جاهزة.", err);
+    });
+
+    map.flyTo({ center: [workerLocation.lng, workerLocation.lat], zoom: 15, essential: true });
+console.log("🚀 93 تحريك الخريطة بسرعة إلى موقع العامل:", workerLocation);
+}
+
+function trackWorker(workerId) {
+    const workerRef = database.ref(`workers/${workerId}/location`);
+    workerRef.on('value', (snapshot) => {
+        const location = snapshot.val();
+        if (location) {
+            showWorkerLocation(location);
+        }
+    });
+}
+
+function trackWorkerArrival(workerId, userLocation) {
+    const workerRef = database.ref(`workers/${workerId}/location`);
+    workerRef.on('value', (snapshot) => {
+        const workerLocation = snapshot.val();
+        if (workerLocation) {
+            monitorWorkerArrival(workerLocation, userLocation, workerId);
+        }
+    });
+}
+
+
+
+
+// مصفوفة لتخزين الملفات المختارة
+let selectedFiles = [];
+
+// دالة لتحديث منطقة المعاينة بناءً على المصفوفة
+function updatePreview() {
+    const previewContainer = document.getElementById('mediaPreviewContainer');
+    previewContainer.innerHTML = "";
+    
+    selectedFiles.forEach((file, index) => {
+        const reader = new FileReader();
+        
+        reader.onload = function(e) {
+            const mediaContainer = document.createElement('div');
+            mediaContainer.style.position = 'relative';
+            mediaContainer.style.display = 'inline-block';
+            
+            let mediaElement;
+            if (file.type.startsWith('image/')) {
+    mediaElement = document.createElement('img');
+    mediaElement.src = e.target.result;
+    mediaElement.style.width = "80px";
+    mediaElement.style.height = "80px";
+    mediaElement.style.objectFit = "cover";
+    mediaElement.style.border = "1px solid #ccc";
+    mediaElement.style.borderRadius = "5px";
+}
+ else if (file.type.startsWith('video/')) {
+                mediaElement = document.createElement('video');
+                mediaElement.src = e.target.result;
+                mediaElement.style.width = "100px";
+                mediaElement.style.height = "100px";
+                mediaElement.controls = true;
+                mediaElement.style.border = "1px solid #ccc";
+                mediaElement.style.borderRadius = "5px";
+            }
+            
+            if (mediaElement) {
+                mediaContainer.appendChild(mediaElement);
+            }
+            
+            // إنشاء زر الحذف لعنصر الملف
+            const removeButton = document.createElement('span');
+            removeButton.innerHTML = '×';
+            removeButton.style.position = 'absolute';
+            removeButton.style.top = '-5px';
+            removeButton.style.right = '-5px';
+            removeButton.style.background = 'red';
+            removeButton.style.color = 'white';
+            removeButton.style.width = '20px';
+            removeButton.style.height = '20px';
+            removeButton.style.display = 'flex';
+            removeButton.style.justifyContent = 'center';
+            removeButton.style.alignItems = 'center';
+            removeButton.style.borderRadius = '50%';
+            removeButton.style.cursor = 'pointer';
+            
+            removeButton.addEventListener('click', function() {
+                // إزالة الملف من المصفوفة وتحديث المعاينة
+                selectedFiles.splice(index, 1);
+                updatePreview();
+            });
+            
+            mediaContainer.appendChild(removeButton);
+            previewContainer.appendChild(mediaContainer);
+        };
+        
+        reader.readAsDataURL(file);
+    });
+}
+
+// حدث تغيير عنصر الإدخال لإضافة الملفات الجديدة إلى المصفوفة
+document.getElementById('mediaInput').addEventListener('change', function(e) {
+    const files = Array.from(e.target.files);
+    // دمج الملفات الجديدة مع الملفات الموجودة مسبقاً
+    selectedFiles = selectedFiles.concat(files);
+    updatePreview();
+    // إعادة تعيين قيمة الإدخال حتى يتمكن المستخدم من اختيار نفس الملفات مرة أخرى إن احتاج ذلك
+    e.target.value = "";
+});
+
+
+
+
+
+function isWithinRadius(workerLocation, targetLocation, radius = 500) {
+    const distance = calculateDistance(workerLocation, targetLocation);
+    return distance <= radius;
+}
+
+
+
+// إضافة حدث عند النقر على زر "إرسال الطلب"
+document.getElementById('submitRequest').addEventListener('click', submitRequest);
+
+
+// وظيفة عرض الإشعار
+function displayNotification(message, workerPhone) {
+    console.log("عرض الإشعار:", message); // رسالة تأكيد
+    // إنشاء الحاوية الرئيسية للإشعار
+    const notification = document.createElement('div');
+    notification.className = 'notification';
+
+    // إنشاء عنصر لعرض الرسالة الأساسية
+    const messageEl = document.createElement('p');
+    messageEl.innerText = message;
+    notification.appendChild(messageEl);
+
+    // إذا وُرد رقم هاتف العامل، نضيفه مع زر الاتصال
+    if (workerPhone) {
+        const phoneEl = document.createElement('p');
+        phoneEl.innerText = `رقم هاتف العامل: ${workerPhone}`;
+        notification.appendChild(phoneEl);
+
+        // إنشاء زر الاتصال
+        const callButton = document.createElement('button');
+        callButton.innerText = 'اتصال';
+        callButton.addEventListener('click', () => {
+            console.log("تم النقر على زر الاتصال، سيتم فتح تطبيق الهاتف.");
+            try {
+                window.location.href = `tel:${workerPhone}`;
+            } catch (error) {
+                console.error("خطأ أثناء محاولة فتح تطبيق الهاتف:", error);
+            }
+        });
+        notification.appendChild(callButton);
+    }
+
+    // إنشاء زر الإغلاق الذي يقوم بإزالة الإشعار عند النقر
+    const closeButton = document.createElement('button');
+    closeButton.innerText = 'إغلاق';
+    closeButton.addEventListener('click', () => {
+        console.log("تم النقر على زر الإغلاق، سيتم إزالة الإشعار.");
+        notification.remove();
+    });
+    notification.appendChild(closeButton);
+
+    // إضافة الإشعار إلى جسم الصفحة (لن يتم إزالته تلقائيًا)
+    document.body.appendChild(notification);
+    console.log("تم عرض الإشعار بنجاح.");
+}
+
+// دالة الاستماع لعروض التفاوض الخاصة بالطلب الحالي
+function listenForNegotiationOffers(requestId) {
+    console.log("استدعاء الاستماع لعروض التفاوض للطلب:", requestId);
+    firebase.database().ref(`negotiations/${requestId}`).on('child_added', snapshot => {
+        const negotiation = snapshot.val();
+        console.log("تم استلام عرض تفاوض جديد:", snapshot.key, negotiation);
+        // استخدام negotiation.requestId إذا كان موجوداً، وإلا استخدام requestId المُمرَّر
+        const orderIdToUse = negotiation.requestId ? negotiation.requestId : requestId;
+        showNegotiationResponsePopup(negotiation, snapshot.key, orderIdToUse);
+    }, error => {
+        console.error("خطأ أثناء الاستماع لعروض التفاوض:", error);
+    });
+}
+
+
+
+
+function showNegotiationResponsePopup(negotiation, negotiationId, orderId) {
+    // نحاول استرجاع بيانات الطلب من الكائن ordersData
+    const orderData = ordersData[orderId];
+    if (orderData) {
+        const orderDescription = orderData.description ? orderData.description : "غير متوفر";
+        document.getElementById('orderDescription').innerText = "علي هذا الطلب: " + orderDescription;
+    } else {
+        // في حالة عدم تواجد بيانات الطلب محلياً، نقوم بالاستعلام من Firebase كحل احتياطي
+        firebase.database().ref(`orders/${orderId}`).once('value')
+            .then(snapshot => {
+                const orderData = snapshot.val() || {};
+                const orderDescription = orderData.description ? orderData.description : "غير متوفر";
+                document.getElementById('orderDescription').innerText = "علي هذا الطلب: " + orderDescription;
+            })
+            .catch(err => {
+                console.error("خطأ في جلب بيانات الطلب:", err);
+            });
+    }
+    
+    const details = `السعر المقترح: ${negotiation.proposedPrice}\nالرسالة: ${negotiation.message}`;
+    document.getElementById('negotiationDetails').innerText = details;
+    
+    // تخزين معرف التفاوض ومعرف الطلب المرتبط به بشكل مستقل دون الاعتماد على متغير عام يتغير لاحقاً
+    window.currentNegotiationId = negotiationId;
+    window.currentNegotiationRequestId = orderId;
+    document.getElementById('negotiationResponsePopup').style.display = 'block';
+}
+
+
+
+
+
+
+
+
+
+// دالة للرد على عرض التفاوض (قبول، رفض، أو تقديم عرض مضاد)
+function respondToNegotiation(responseType) {
+    if (responseType === 'counter') {
+        // عند اختيار العرض المضاد، يتم عرض النموذج دون تحديث قاعدة البيانات الآن
+        openCounterOfferForm();
+        return;
+    }
+    
+    const negotiationUpdate = {};
+    // تعديل لتستخدم قيم متسقة: "accepted" و"rejected"
+    if (responseType === 'accepted') {
+        negotiationUpdate.status = 'accepted';
+    } else if (responseType === 'rejected') {
+        negotiationUpdate.status = 'rejected';
+    }
+    
+    negotiationUpdate.respondedAt = Date.now();
+    
+    firebase.database().ref(`negotiations/${window.currentNegotiationRequestId}/${window.currentNegotiationId}`)
+    .update(negotiationUpdate)
+    .then(() => {
+        alert(`تم ${responseType === 'accepted' ? 'قبول' : 'رفض'} العرض بنجاح.`);
+        document.getElementById('negotiationResponsePopup').style.display = 'none';
+        // (اختياري) استدعاء دالة لإرسال إشعار للعامل إن كانت لديك آلية إشعارات
+        // notifyWorkerAboutResponse(responseType);
+    })
+    .catch(error => {
+        console.error("خطأ في تحديث حالة التفاوض:", error);
+        alert("حدث خطأ أثناء تحديث العرض.");
+    });
+}
+
+// مثال لربط الأزرار (يتم استدعاؤه بعد تحميل الصفحة)
+document.addEventListener('DOMContentLoaded', function() {
+    document.getElementById('acceptNegotiationBtn').addEventListener('click', function() {
+        respondToNegotiation('accepted');
+    });
+    document.getElementById('rejectNegotiationBtn').addEventListener('click', function() {
+        respondToNegotiation('rejected');
+    });
+    document.getElementById('counterNegotiationBtn').addEventListener('click', function() {
+        respondToNegotiation('counter');
+    });
+});
+
+
+
+
+// دالة لفتح نموذج العرض المضاد
+function openCounterOfferForm() {
+    const counterOfferPopup = document.getElementById('counterOfferPopup');
+    if (counterOfferPopup) {
+        // إعادة تعيين الحقول للتأكد من بدء المستخدم بنموذج نظيف
+        document.getElementById('counterPrice').value = "";
+        document.getElementById('counterMessage').value = "";
+        counterOfferPopup.style.display = 'block';
+        console.log("تم فتح نموذج العرض المضاد وتفريغ الحقول السابقة.");
+    } else {
+        alert("نموذج تقديم العرض المضاد غير موجود. يرجى التأكد من إضافته في HTML.");
+    }
+}
+
+
+// دالة لإغلاق نموذج العرض المضاد
+function closeCounterOfferForm() {
+    const counterOfferPopup = document.getElementById('counterOfferPopup');
+    if (counterOfferPopup) {
+        counterOfferPopup.style.display = 'none';
+    }
+}
+
+// دالة لإرسال العرض المضاد بعد تعبئة النموذج - بعد التعديل المطور
+function submitCounterOffer() {
+    const counterPrice = document.getElementById('counterPrice').value;
+    let counterMessage = document.getElementById('counterMessage').value;
+    
+    // التحقق من تعبئة الحقول المطلوبة
+    if (!counterPrice || !counterMessage) {
+        alert("يرجى إدخال السعر والرسالة.");
+        return;
+    }
+    
+    // حفظ النص الأصلي في متغير منفصل
+    const originalMessage = counterMessage;
+    // تنظيف النص من الفواصل والرموز التي قد تُستخدم لإخفاء الرقم (مسافات، شرطات، أقواس، نقاط، وفواصل عربية)
+    const cleanedMessage = originalMessage.replace(/[\s\-().،]/g, '');
+    
+    // تعبير نمطي متطور لمطابقة أرقام الهواتف الليبية المحظورة:
+    // - يسمح بالنمط الذي يبدأ بـ "+218" أو "218"
+    // - أو يبدأ بـ "9" مع الرقم من 2 إلى 5 مع إمكانية وجود بادئة "0" (مثل 092 أو 92)
+    // متبوعاً بتسلسل من 7 إلى 9 أرقام (يمكن تعديلها حسب المطلوب)
+    const advancedRegex = /(?:\+?218|(?:0?9[2-5]))\d{7,9}/;
+    
+    // فحص النص المُنظف للتأكد من عدم احتوائه على رقم هاتف غير مرغوب فيه
+    if (advancedRegex.test(cleanedMessage)) {
+        counterMessage = originalMessage.replace(advancedRegex, '').trim();
+        alert("تم إزالة رقم الهاتف من الرسالة لأنه يمنع كتابته في رسالة تفاوض.");
+    }
+    
+    // توحيد أسماء الحقول والقيمة بحيث تتطابق مع ما تتوقعه updateCounterOfferUI
+    const negotiationUpdate = {
+        status: 'counter',           // تغيير الحالة إلى "counter"
+        proposedPrice: counterPrice, // تغيير اسم الحقل إلى proposedPrice
+        message: counterMessage,     // تغيير اسم الحقل إلى message
+        respondedAt: Date.now()
+    };
+    
+    firebase.database().ref(`negotiations/${window.currentNegotiationRequestId}/${window.currentNegotiationId}`)
+        .update(negotiationUpdate)
+        .then(() => {
+             alert("تم تقديم العرض المضاد بنجاح.");
+             closeCounterOfferForm();
+             document.getElementById('negotiationResponsePopup').style.display = 'none';
+        })
+        .catch(error => {
+             console.error("خطأ في تحديث العرض المضاد:", error);
+             alert("حدث خطأ أثناء تحديث العرض المضاد.");
+        });
+}
+
+
+
+
+
+
+
+
+        // مفتاح Mapbox
+        const mapboxToken = "pk.eyJ1IjoiY2hvb3NlbWUiLCJhIjoiY20wZnVpemI2MHpreTJqcjR4ZThuam9pYyJ9.F1CjHrnJ7m-VwM_LHt0Q9Q";
+        mapboxgl.accessToken = mapboxToken;
+        function isWithinRadius(workerLocation, targetLocation, radius = 500) {
+
+
+function sendPushNotification(deviceToken, message) {
+    const notificationPayload = {
+        notification: {
+            title: 'طلب جديد!',
+            body: message,
+            icon: 'https://example.com/icon.png'
+        }
+    };
+
+    fetch('https://fcm.googleapis.com/fcm/send', {
+        method: 'POST',
+        headers: {
+            'Authorization': {
+  "type": "service_account",
+  "project_id": "adlo-44d1b",
+  "private_key_id": "5781b90d04e91cb10b5294a9f1ff73a6456b8790",
+  "private_key": "-----BEGIN PRIVATE KEY-----\nMIIEvQIBADANBgkqhkiG9w0BAQEFAASCBKcwggSjAgEAAoIBAQCx8EgjS3+2FJLH\ndYU/BD33kfCtKuFZogiKg7Di3uxLdn731FDXlCrgtuVSlPWxeXEQr3d7wj3TWqEE\nMKi8ANCLeo0CgiLyWhJcKuiWwRyriKsFmWAVdqgFQoHTTaW8KiAiyLgtHbYI9UHY\nomA0o01ApLqgxOYHjbaye/QKSEthx8C8G1304+ZWoz4SQjLsjmRu2UO2GkQuCjpu\nU6FPJjqPIEnf+BsKP/tSc9tz/+/KrLl2+RypQ/beR5Wbx92m6NSoztOnQakuI+Iz\nCx9KK5vz9BhVpXK6WWWfBMG8o7tWOs8j5pdcbWtNLv8RDHyr+a6cQmO20ptPpDXB\n+/mXpzLFAgMBAAECggEACCvKDEDfzPs14E3vv/yQYemEPVd+QLD1pnK0sT5eaHq5\nCuVnjvbBX09WyYuIms1CWWtNV9QMJcQAJ+KaJQP+j6Ehj49tTma/eBcKVj3o9KGS\nhO/Nnz6zKYar0om6xiDDGAXSm1PFc7TbgLi4JUKofgLyhQZ1r7wcuyaBBuXZ/FPt\nmtFlIstHUfmOQZMhXmD3PaV7/bLLb+96uEFZoNI14h28tP/pYIVY/3Dyyke0W7Kv\n6Nde4v3cHxMsD3oVfiHYN/2/z/ocshfRh1conPnzLbpflQ2uIcH+FE7o36e74kuE\nmJ24/6j1+1NhzeLS3wzh6Wvwjv/eoLxIWLCkAy1JwQKBgQD45cHkXJOmA6n7V1rS\nfm5F/088EVjjNPNjWeIVZuTiPuXUx1L1F2qPCvZQ+dYmNyl8B4456AqWUJh0Hb7m\n9YSTULe+ih+WTxyvYcepjhHPd6vSngEIrw1egYWcKH5kP1QYUXlHJcd7bPzgn4aM\n7qquLS6HdCVOHLnr7zkP8xuAoQKBgQC3BCgOhqCggoj04q5Ntx/agKkRBxClmZys\n010ZOfkQ1PXeTN1CJyvjjpDfkHNQPaMAkc1T8bCKyxNIOe3UsQXN7R/9BX3itSIG\nnPnMZ0lg/fU5OBvp0MMseaoWr94Yhb93ZThkzxYU8HRfaNX1tGXYNx49aJ8gqLGg\n+UEAteprpQKBgF0lLrCVbLP+PwjOojCQHBiZ+T8Tht5QnJ0bsB4uSY3Z2A0PIx6R\nytEJWzDmrpvSnPXLphBJpFyogMVDtIOeciTnWjw2WKfZp3SC9UOg5U1tDaJeeyiS\nykAJ3MSZ6uL9SC1poCdeHg80tFYjnSj00G8qfXU3pBZdbb674fD0G+DBAoGATOpj\nR0+PPEX/9yM5bBH1QihmZXCZr28yqHOgIdT6dvd5aXbWWlIKIPWurzaPL/7nfXrJ\nV2kw7/PO48Ds0kGfld79XaIsONY1OaBJX31dGnVA1U5edNK24/8x250H8zhqsmwI\n2l0qA5zW2648lam+T7NCcz5/+gLLvEJk7j6GCb0CgYEAgPzfBg4xfeNM5VaNi/Cd\nNQF5h6VXYNETInXfMCHYeUu0Pmfd12ze6P7xrgGGqGFgIPZdgYv4baui7cKKRld+\n1Kengb384TSmFaA2Zi09w5GyHzL6jaxTrEBb3Kb1JQSlhfmXzbkjPA2YV7zfV1fx\nOvdfA1n1Q8b0b/DKeHYq8uE=\n-----END PRIVATE KEY-----\n",
+  "client_email": "firebase-adminsdk-6kqti@adlo-44d1b.iam.gserviceaccount.com",
+  "client_id": "110338401661879350692",
+  "auth_uri": "https://accounts.google.com/o/oauth2/auth",
+  "token_uri": "https://oauth2.googleapis.com/token",
+  "auth_provider_x509_cert_url": "https://www.googleapis.com/oauth2/v1/certs",
+  "client_x509_cert_url": "https://www.googleapis.com/robot/v1/metadata/x509/firebase-adminsdk-6kqti%40adlo-44d1b.iam.gserviceaccount.com",
+  "universe_domain": "googleapis.com"
+}
+, // استبدل YOUR_SERVER_KEY_HERE بمفتاح الخادم الخاص بك
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+            to: deviceToken,
+            ...notificationPayload
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        console.log('تم إرسال الإشعار بنجاح:', data);
+    })
+    .catch(error => {
+        console.error('خطأ في إرسال الإشعار:', error);
+    });
+}
+
+
+    const distance = turf.distance(workerLocation, targetLocation, { units: 'meters' });
+    return distance <= radius;
+}
+function checkProximityAndNotify(workerLocation, clientLocation) {
+    if (isWithinRadius(workerLocation, clientLocation)) {
+        alert('العامل اقترب من الموقع!');
+    }
+}
+
+
+
+        // إعداد الأنماط المختلفة للخريطة
+// إعداد الأنماط المختلفة للخريطة مع نمط إضافي (light)
+const styles = {
+    streets: 'mapbox://styles/mapbox/streets-v11',
+    satellite: 'mapbox://styles/mapbox/satellite-v9',
+    outdoors: 'mapbox://styles/mapbox/outdoors-v11',
+    hybrid: 'mapbox://styles/mapbox/satellite-streets-v11',
+    dark: 'mapbox://styles/mapbox/dark-v10',
+    light: 'mapbox://styles/mapbox/light-v10' // الوضع الفاتح
+};
+
+// تهيئة الخريطة من "الفضاء"
+map = new mapboxgl.Map({
+  container: 'map',
+  style: 'mapbox://styles/mapbox/satellite-streets-v11',
+  center: [0, 0],  // بدء العرض من مركز الأرض
+  zoom: 0.4,       // رؤية الكرة الأرضية من الفضاء البعيد
+  projection: 'globe',
+  maxBounds: [[-180, -85], [180, 85]], // منع الخروج من الكرة الأرضية
+  interactive: true, // السماح بالتفاعل اللمسي
+  attributionControl: false // إزالة شعار Mapbox لتحسين تجربة المستخدم
+});
+
+map.on('style.load', () => {
+  map.setFog({
+    range: [1, 6],
+    color: 'rgba(255, 255, 255, 0.9)',  // هالة بيضاء تقريباً غير شفافة
+    "horizon-blend": 0.1
+  });
+});
+
+
+// تنفيذ تأثير التحرك بعد تحميل الخريطة مع تأخير لمحاكاة رؤية الأرض من الفضاء
+map.on('load', () => {
+  waitUntilMapReady().then(() => {
+    setTimeout(() => {
+      map.flyTo({
+        center: [13.1913, 32.8872], // الانتقال إلى طرابلس
+        zoom: window.innerWidth < 768 ? 9 : 12, // تقريب أقل على الهواتف
+        pitch: window.innerWidth < 768 ? 30 : 60, // زاوية ميل أقل على الأجهزة المحمولة
+        bearing: 45, // دوران لطيف أثناء الحركة
+        speed: 0.3, // حركة بطيئة لمحاكاة التنقل الطبيعي
+        curve: 2.2, // منحنى سلس للحركة
+        easing: t => t * t // حركة تخفيف تدريجية
+      });
+    }, 2000); // تأخير الانتقال 2 ثانية
+  });
+});
+
+
+// تحسين تجربة اللمس على الأجهزة المحمولة
+if (window.innerWidth < 768) {
+  map.touchZoomRotate.enable(); // تفعيل التكبير والتدوير باللمس
+  map.doubleClickZoom.disable(); // تعطيل التكبير بالنقر المزدوج
+}
+
+
+
+
+
+document.addEventListener("DOMContentLoaded", () => {
+  const cancelRequestBtn = document.getElementById('cancelRequestButton');
+  if (cancelRequestBtn) {
+    cancelRequestBtn.addEventListener('click', function() {
+      showCancelConfirmation(function() {
+        const requestRef = firebase.database().ref(`workRequests/${currentRequestId}`);
+        requestRef.update({ status: 'canceled_by_user' })
+          .then(() => {
+            alert('تم إلغاء الطلب.');
+            // استخدام المتغير الصحيح الذي يحمل معرّف العامل (مثلاً window.selectedWorkerId)
+            sendPusherNotification(window.selectedWorkerId, 'تم إلغاء الطلب من قبل المستخدم.');
+            document.getElementById('cancelRequestContainer').style.display = 'none';
+          })
+          .catch((err) => console.error("خطأ في تحديث حالة الطلب:", err));
+      });
+    });
+  }
+});
+
+
+// دالة تنتظر تحميل نمط الخريطة قبل المتابعة
+function waitUntilMapReady() {
+    return new Promise((resolve, reject) => {
+        if (map && map.isStyleLoaded()) {
+            console.log("ℹ️: 180 الخريطة جاهزة بالفعل.");
+            resolve();
+        } else {
+            // انتظار حدث تحميل النمط (يعمل لمرة واحدة)
+            map.once('style.load', () => {
+                console.log("ℹ️: 181 تم تحميل النمط – الخريطة جاهزة الآن.");
+                resolve();
+            });
+            // تعيين مهلة انتظار (15 ثانية)
+            setTimeout(() => {
+                if (!map.isStyleLoaded()) {
+                    console.error("🚨: 182 انتهى وقت الانتظار لتحميل النمط.");
+                    reject(new Error(" 183 انتهى وقت الانتظار لتحميل النمط."));
+                }
+            }, 15000);
+        }
+    });
+}
+
+// دالة عرض العمال على الخريطة (مع انتظار تحميل النمط)
+function showPublicWorkers() {
+    waitUntilMapReady()
+    .then(() => {
+        const workersRef = database.ref('workers');
+        workersRef.once('value', (snapshot) => {
+            snapshot.forEach((worker) => {
+                const workerData = worker.val();
+                if (workerData.isAvailable) { // فقط العمال المتاحين
+                    const distance = calculateDistance(map.getCenter(), workerData.location);
+                    new mapboxgl.Marker()
+                        .setLngLat([workerData.location.lng, workerData.location.lat])
+                        .setPopup(new mapboxgl.Popup().setHTML(`
+                            <p>الاسم: ${workerData.name}</p>
+                            <p>المسافة: ${distance.toFixed(2)} كم</p>
+                            <p>المهارة: ${workerData.skill}</p>
+                        `))
+                        .addTo(map);
+                }
+            });
+        });
+    })
+    .catch((err) => {
+        console.error("⚠️: 186 تعذر عرض العمال لأن الخريطة ليست جاهزة.", err);
+    });
+}
+
+
+
+// إعداد التحكم في البحث
+const geocoder = new MapboxGeocoder({
+    accessToken: mapboxgl.accessToken,
+    language: "ar",
+    marker: true,
+    mapboxgl: mapboxgl
+});
+
+map.addControl(geocoder);
+
+// إعداد التحكم في تحديد الموقع
+const locateControl = new mapboxgl.GeolocateControl({
+    positionOptions: {
+        enableHighAccuracy: true
+    },
+    trackUserLocation: true,
+    showUserHeading: true,
+    fitBoundsOptions: {
+        maxZoom: 18
+    }
+});
+
+map.addControl(locateControl);
+
+
+// متغير للتحكم في إعادة التمركز
+let autoCenterEnabled = false;
+
+// عند الضغط على زر "تحديد موقعي" نفعّل إعادة التمركز
+const locateBtn = document.getElementById('locateButton');
+if (!locateBtn) {
+    console.error("عنصر locateButton غير موجود.");
+} else {
+    locateBtn.addEventListener('click', () => {
+        autoCenterEnabled = true; // تفعيل إعادة التمركز عند الضغط على الزر
+        locateControl.trigger();
+        console.log("تم الضغط على زر تحديد موقعي وتفعيل إعادة التمركز.");
+    });
+}
+
+
+// عند سحب الخريطة يدويًا، نوقف إعادة التمركز التلقائي
+map.on('dragstart', () => {
+    if (autoCenterEnabled) {
+        console.log("تم تعطيل إعادة التمركز تلقائيًا بسبب سحب الخريطة يدويًا.");
+    }
+    autoCenterEnabled = false;
+});
+
+// عند الحصول على الموقع من locateControl، نُعيد التمركز فقط إذا كان autoCenterEnabled true
+locateControl.on('geolocate', (e) => {
+    console.log("تم تحديد الموقع: ", e.coords);
+    if (autoCenterEnabled) {
+        map.flyTo({
+            center: [e.coords.longitude, e.coords.latitude],
+            zoom: 14,      
+            speed: 0.8,    
+            curve: 1.5,    
+            easing: function (t) {
+                return t;
+            }
+        });
+    } else {
+        console.log("إعادة التمركز معطلة؛ المستخدم تحكم يدويًا في موقع العرض.");
+    }
+});
+
+
+
+        map.addControl(locateControl);
+
+        // إضافة الأزرار للتبديل بين الأنماط
+// دوال المساعدة
+// دوال إدارة الكوكيز
+function setCookie(name, value, days) {
+    var expires = "";
+    if (days) {
+        var date = new Date();
+        date.setTime(date.getTime() + (days * 24 * 60 * 60 * 1000));
+        expires = "; expires=" + date.toUTCString();
+    }
+    document.cookie = name + "=" + (value || "") + expires + "; path=/";
+    console.log(`✔️ تم تعيين الكوكيز: ${name} = ${value} لمدة ${days} يوم`);
+}
+
+function getCookie(name) {
+    var nameEQ = name + "=";
+    var ca = document.cookie.split(';');
+    for (var i = 0; i < ca.length; i++) {
+        var c = ca[i].trim();
+        if (c.indexOf(nameEQ) === 0) {
+            console.log(`✔️ تم استرجاع الكوكيز: ${name} = ${c.substring(nameEQ.length)}`);
+            return c.substring(nameEQ.length);
+        }
+    }
+    console.warn(`⚠️ لم يتم العثور على الكوكيز: ${name}`);
+    return null;
+}
+
+// دالة تحميل الصورة المخصصة مع التحقق من نوع الملف
+function loadCustomImage(url) {
+    return new Promise((resolve, reject) => {
+        if (!url.match(/\.(png|jpg|jpeg)$/i)) {
+            const errorMsg = "⚠️ صيغة الصورة غير مدعومة. الرجاء استخدام PNG أو JPEG.";
+            console.error(errorMsg, url);
+            return reject(new Error(errorMsg));
+        }
+        const img = new Image();
+        img.onload = function () {
+            console.log("✔️ تم تحميل الصورة بنجاح:", url);
+            resolve(img);
+        };
+        img.onerror = function (err) {
+            console.error("⚠️ خطأ في تحميل الصورة. تأكد من استخدام PNG أو JPEG:", url, err);
+            reject(err);
+        };
+        img.src = url;
+    });
+}
+
+// استرجاع تفضيل نمط الخريطة من الكوكيز إذا وُجد عند تحميل الصفحة
+document.addEventListener("DOMContentLoaded", function () {
+    var savedStyle = getCookie("mapStyle_index"); // تغيير اسم الكوكيز
+    if (savedStyle) {
+        document.getElementById('styleSelector').value = savedStyle;
+        if (savedStyle === "hybrid") {
+            // إذا كان التفضيل هو "هايبرد"، قم بتعيين نمط بديل (مثلاً "streets") أولاً
+            map.setStyle(styles["streets"]);
+            console.log("🔄 تم تعيين نمط streets مؤقتًا لتحفيز حدث تحميل النمط.");
+            // عند انتهاء تحميل النمط البديل، قم بتأخير بسيط ثم عاود تعيين النمط إلى "هايبرد"
+            map.once("style.load", function () {
+                setTimeout(function(){
+                    map.setStyle(styles["hybrid"]);
+                    console.log("✔️ تم إعادة تعيين النمط إلى hybrid بعد التأخير.");
+                }, 100); // يمكنك تعديل مدة التأخير حسب الحاجة (مثلاً 100 مللي ثانية)
+            });
+        } else {
+            // إذا كان النمط غير "هايبرد"، قم بتعيينه مباشرة
+            map.setStyle(styles[savedStyle]);
+            console.log("✔️ تم تطبيق تفضيل النمط من الكوكيز (index):", savedStyle);
+        }
+    } else {
+        console.warn("⚠️ لا يوجد تفضيل محفوظ في الكوكيز لنمط الخريطة.");
+    }
+});
+
+
+// عند تغيير المستخدم لنمط الخريطة، يتم تخزينه في الكوكيز الخاص بـ index.html
+document.getElementById('styleSelector').addEventListener('change', function () {
+    const selectedStyle = this.value;
+    map.setStyle(styles[selectedStyle]);
+    setCookie("mapStyle_index", selectedStyle, 30); // تغيير اسم الكوكيز
+    console.log("✔️ تم تغيير النمط وحفظه في كوكيز index:", selectedStyle);
+});
+
+
+
+        map.on('style.load', function() {
+    if (window.currentRouteToUserData) {
+        // إذا لم يكن مصدر "route-user" موجوداً، أضفه مرة أخرى
+        if (!map.getSource('route-user')) {
+            map.addSource('route-user', {
+                type: 'geojson',
+                data: window.currentRouteToUserData
+            });
+            map.addLayer({
+                id: 'route-user',
+                type: 'line',
+                source: 'route-user',
+                layout: {
+                    'line-join': 'round',
+                    'line-cap': 'round'
+                },
+                paint: {
+                    'line-color': '#3887be',
+                    'line-width': 5
+                }
+            });
+            console.log("✔️ تمت إعادة إضافة طبقة المسار للمستخدم بعد تغيير النمط.");
+        }
+    }
+});
+
+
+// حدث عند النقر على زر "طلب عامل"
+// إضافة الحدث لمرة واحدة فقط عند تحميل الصفحة
+
+
+
+
+// كائن لتخزين المستمعين للعقدتين
+let activeWorkersListeners = {};
+
+// مراقبة عقدة workers لمعرفة من هو النشط
+const workersRef = database.ref('workers');
+workersRef.on('child_changed', (snapshot) => {
+    const workerId = snapshot.key;
+    const workerData = snapshot.val();
+
+    if (workerData.active === true || workerData.active === 'true') {
+        console.log(`✅ العامل ${workerId} نشط، سيتم تتبعه من activeWorkers.`);
+        startActiveWorkersTracking(workerId);
+    } else {
+        console.log(`❌ العامل ${workerId} غير نشط، سيتم إيقاف تتبعه.`);
+        stopActiveWorkersTracking(workerId);
+        removeWorkerMarker(workerId);
+    }
+});
+
+// دالة بدء تتبع الموقع من activeWorkers
+function startActiveWorkersTracking(workerId) {
+    // إذا كان العامل يُتابَع بالفعل، لا تضف مستمعًا جديدًا
+    if (activeWorkersListeners[workerId]) return;
+
+    const workerRef = database.ref(`activeWorkers/${workerId}`);
+    const listener = workerRef.on('value', (snapshot) => {
+        if (!snapshot.exists()) {
+            console.log(`🚨 العامل ${workerId} لم يعد نشطًا في activeWorkers، سيتم إيقاف التتبع.`);
+            stopActiveWorkersTracking(workerId);
+            removeWorkerMarker(workerId);
+            return;
+        }
+        const workerData = snapshot.val();
+        createOrUpdateWorkerMarker(workerId, workerData.location);
+    });
+
+    activeWorkersListeners[workerId] = listener;
+}
+
+// دالة إيقاف تتبع activeWorkers عند تغير حالة العامل إلى غير نشط
+function stopActiveWorkersTracking(workerId) {
+    if (activeWorkersListeners[workerId]) {
+        database.ref(`activeWorkers/${workerId}`).off('value', activeWorkersListeners[workerId]);
+        delete activeWorkersListeners[workerId];
+        console.log(`🛑 تم إيقاف تتبع العامل ${workerId} من activeWorkers.`);
+    }
+}
+
+// عند حذف العامل من workers، نحذفه أيضًا من activeWorkers
+workersRef.on('child_removed', (snapshot) => {
+    const workerId = snapshot.key;
+    console.log(`🗑️ العامل ${workerId} تم حذفه من workers، سيتم إيقاف تتبعه.`);
+    stopActiveWorkersTracking(workerId);
+    removeWorkerMarker(workerId);
+});
+
+function createOrUpdateWorkerMarker(workerId, location) {
+    if (!workerMarkers[workerId]) {
+         // إنشاء عنصر HTML مخصص باستخدام الإيموجي 👷‍♂️
+         var customWorkerMarker = document.createElement('div');
+         customWorkerMarker.innerText = '👷‍♂️';
+         customWorkerMarker.style.fontSize = '30px';
+         customWorkerMarker.style.lineHeight = '30px';
+         customWorkerMarker.style.width = '30px';
+         customWorkerMarker.style.height = '30px';
+         customWorkerMarker.style.textAlign = 'center';
+
+         // إنشاء الماركر باستخدام العنصر المخصص
+         const marker = new mapboxgl.Marker(customWorkerMarker)
+             .setLngLat([location.lng, location.lat])
+             .addTo(map);
+
+         // عند النقر على العلامة يتم فتح نموذج الطلب الخاص بهذا العامل
+         marker.getElement().addEventListener('click', () => {
+             openWorkerRequestPopup(workerId);
+         });
+         workerMarkers[workerId] = marker;
+    } else {
+         workerMarkers[workerId].setLngLat([location.lng, location.lat]);
+    }
+}
+
+
+
+function openWorkerRequestPopup(workerId) {
+  window.selectedWorkerId = workerId;
+  const popupTitle = document.querySelector('#requestPopup h2');
+  // استعلام اسم العامل من قاعدة البيانات
+  database.ref(`workers/${workerId}/name`).once('value')
+    .then((snapshot) => {
+      const workerName = snapshot.val();
+      console.log("اسم العامل المُسترجَع:", workerName); // سجل للتصحيح
+      const displayName = workerName ? workerName : "العامل";
+      if (popupTitle) {
+        popupTitle.innerHTML = "تقديم طلب مباشر لـ " + displayName;
+      }
+      document.getElementById('requestPopup').style.display = 'block';
+    })
+    .catch((error) => {
+      console.error("خطأ في استرجاع اسم العامل:", error);
+      if (popupTitle) {
+        popupTitle.innerHTML = "طلب مباشر لـ العامل";
+      }
+      document.getElementById('requestPopup').style.display = 'block';
+    });
+}
+
+function onWorkerMarkerClick(workerId) {
+  console.log("🟡 تم النقر على الماركر. المعرّف:", workerId);
+  // استدعاء الدالة التي تفتح نافذة الطلب المباشر
+  openWorkerRequestPopup(workerId);
+}
+
+// إعادة تفعيل زر "طلب عامل" مع إعادة تعيين عنوان النافذة في حالة الفتح اليدوي
+document.addEventListener('DOMContentLoaded', () => {
+    const requestWorkerBtn = document.getElementById('requestWorker');
+    if (requestWorkerBtn) {
+        requestWorkerBtn.addEventListener('click', () => {
+            // إعادة تعيين عنوان النافذة إلى "طلب عامل" قبل الفتح
+            const popupTitle = document.querySelector('#requestPopup h2');
+            if (popupTitle) {
+                popupTitle.innerHTML = "طلب عامل";
+            }
+            // تفريغ اختيار العامل المباشر (إن وجد)
+            window.selectedWorkerId = null;
+            // يمكن إضافة إعادة ضبط الحقول هنا إذا كان ذلك مطلوباً
+            document.getElementById('requestPopup').style.display = 'block';
+        });
+    } else {
+        console.error("عنصر 'requestWorker' غير موجود في الصفحة.");
+    }
+});
+
+
+
+
+
+document.getElementById('cancelRequest').addEventListener('click', () => {
+    document.getElementById('requestPopup').style.display = 'none';
+});
+
+document.getElementById('confirmYes').addEventListener('click', () => {
+    waitUntilMapReady()
+    .then(() => {
+        const userLocation = map.getCenter();
+        // هنا يمكننا اختيار عدم إضافة علامة جديدة للمستخدم إذا كانت العلامة الخاصة بالطلب ستظهر بناءً على اختيار العامل
+        // أو يمكن الاحتفاظ بهذا الجزء إذا كان ضروريًا لتأكيد الموقع
+        new mapboxgl.Marker()
+            .setLngLat(userLocation)
+            .addTo(map);
+        document.getElementById('inputPopup').style.display = 'block';
+        document.getElementById('confirmationPopup').style.display = 'none';
+        console.log("تم تأكيد وضع العلامة للمستخدم");
+    })
+    .catch((err) => {
+        console.error("⚠️: 187 تعذر تأكيد وضع العلامة لأن الخريطة ليست جاهزة.", err);
+    });
+});
+
+document.getElementById('confirmNo').addEventListener('click', () => {
+    document.getElementById('confirmationPopup').style.display = 'none';
+});
+
+document.getElementById('submitInfo').addEventListener('click', () => {
+    const name = document.getElementById('nameInput').value;
+    const phone = document.getElementById('phoneInput').value;
+    if (name && phone) {
+        const markerData = {
+            name: name,
+            phone: phone,
+            location: {
+                lng: map.getCenter().lng,
+                lat: map.getCenter().lat
+            }
+        };
+        const markersRef = database.ref('markers');
+        markersRef.push(markerData)
+            .then(() => {
+                alert('تم حفظ العلامة بنجاح.');
+                document.getElementById('inputPopup').style.display = 'none';
+                document.getElementById('nameInput').value = '';
+                document.getElementById('phoneInput').value = '';
+            })
+            .catch((error) => {
+                alert('حدث خطأ: ' + error.message);
+            });
+    } else {
+        alert('يرجى ملء جميع الحقول.');
+    }
+});
+
+document.getElementById('cancelInput').addEventListener('click', () => {
+    document.getElementById('inputPopup').style.display = 'none';
+});
+
+window.addEventListener('click', (event) => {
+    const inputPopup = document.getElementById('inputPopup');
+    const requestPopup = document.getElementById('requestPopup');
+    if (event.target === inputPopup) inputPopup.style.display = 'none';
+    if (event.target === requestPopup) requestPopup.style.display = 'none';
+});
+
+
+
+
+        // التبديل بين حالات الطقس
+        document.getElementById('toggleWeather').addEventListener('click', async () => {
+    const weatherInfo = document.getElementById('weatherInfo');
+    if (weatherInfo.style.display === 'none') {
+        const response = await fetch('https://api.openweathermap.org/data/2.5/weather?q=Tripoli,LY&appid=YOUR_API_KEY&units=metric&lang=ar');
+        const data = await response.json();
+        weatherInfo.innerText = `الطقس في طرابلس: ${data.weather[0].description}, درجة الحرارة: ${data.main.temp}°C`;
+        weatherInfo.style.display = 'block';
+    } else {
+        weatherInfo.style.display = 'none';
+    }
+});
+
+
+function showCancelConfirmation(callback) {
+  // إنشاء نافذة تأكيد بسيطة
+  const confirmation = confirm("هل أنت متأكد من رغبتك في إلغاء الطلب؟");
+  if (confirmation) {
+    callback(); // استدعاء الإجراء في حال الموافقة
+  }
+}
+
+
+        // عرض معلومات عن العمال
+
+        document.getElementById('requestWater').addEventListener('click', () => {
+    const workerInfo = document.getElementById('workerInfo');
+    const workersRef = database.ref('workers');
+    
+    workersRef.once('value', (snapshot) => {
+        workerInfo.innerHTML = ''; // تفريغ المحتوى السابق
+        snapshot.forEach((worker) => {
+            const workerData = worker.val();
+            const workerElement = document.createElement('div');
+            workerElement.innerHTML = `
+                <p>الاسم: ${workerData.name}</p>
+                <p>رقم الهاتف: ${workerData.phone}</p>
+                <hr>
+            `;
+            workerInfo.appendChild(workerElement);
+        });
+    });
+        
+    workerInfo.style.display = workerInfo.style.display === 'block' ? 'none' : 'block';
+});
+
+    </script>
+</body>
+</html>

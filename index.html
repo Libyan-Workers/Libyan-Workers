@@ -508,6 +508,28 @@
 
         <!-- NEW CODE: زر مراجعة/تعديل الطلب -->
         <button id="reviewRequestButton" class="controlButton">عرض تفاصيل الطلب وتعديله</button>
+<!-- زر عروض التفاوض المقدمة موجود بالفعل -->
+<button class="controlButton" id="btnNegotiationOffers" style="background-color: gray;">
+  عروض التفاوض المقدمة
+</button>
+
+<!-- قائمة منسدلة لعرض عروض التفاوض -->
+<div id="negotiationDropdown" style="
+    display: none;
+    position: absolute;
+    top: 50px; /* قم بتعديل القيمة لتتناسب مع موضع الزر */
+    right: 10px; /* تعديل الموضع حسب التصميم */
+    background: #fff;
+    border: 1px solid #ccc;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.2);
+    z-index: 999;
+    max-height: 200px;
+    overflow-y: auto;
+    width: 90%;
+    padding: 5px;
+">
+  <!-- ستضاف عناصر العروض هنا -->
+</div>
 
 <!-- إضافة زر الإلغاء في واجهة المستخدم -->
 <div id="cancelRequestContainer" style="display:none; position: fixed; bottom: 20px; right: 20px; z-index: 1000;">
@@ -2133,6 +2155,85 @@ function startTracking(workerId) {
   } catch (error) {
     console.error(`خطأ أثناء بدء تتبع العامل ${workerId}:`, error);
   }
+}
+
+
+
+document.getElementById('btnNegotiationOffers').addEventListener('click', function () {
+  var dropdown = document.getElementById('negotiationDropdown');
+  // تبديل حالة العرض في القائمة (Show/Hide)
+  if (dropdown.style.display === 'none' || dropdown.style.display === '') {
+    dropdown.style.display = 'block';
+    // تحميل العروض من Firebase عند فتح القائمة
+    loadNegotiationOffers();
+  } else {
+    dropdown.style.display = 'none';
+  }
+});
+
+
+
+function loadNegotiationOffers() {
+  if (!currentRequestId) {
+    console.error("معرف الطلب غير معروف لتحديث عروض التفاوض.");
+    return;
+  }
+  
+  // الحصول على مرجع لعقدة التفاوض الخاصة بالطلب الحالي
+  var negotiationRef = firebase.database().ref('negotiations/' + currentRequestId);
+
+  negotiationRef.on('value', function(snapshot) {
+    var dropdown = document.getElementById('negotiationDropdown');
+    dropdown.innerHTML = ""; // تفريغ القائمة قبل إعادة التعبئة
+
+    if (snapshot.exists()) {
+      snapshot.forEach(function(childSnapshot) {
+        var offerData = childSnapshot.val();
+        var offerItem = document.createElement('div');
+        offerItem.style.padding = "8px";
+        offerItem.style.borderBottom = "1px solid #eee";
+        offerItem.style.cursor = "pointer";
+
+        // استرجاع اسم العامل باستخدام workerId الموجود في بيانات العرض
+        firebase.database().ref('workers/' + offerData.workerId + '/name').once('value').then(function(nameSnap) {
+          var workerName = nameSnap.val() || "العامل مجهول";
+          // تنسيق العرض: اسم العامل في السطر الأول، ثم السعر، ثم الرسالة
+          offerItem.innerHTML = `
+            <strong>${workerName}</strong><br>
+            السعر: ${offerData.proposedPrice}<br>
+            الرسالة: ${offerData.message}
+          `;
+
+          // عند الضغط على العرض يمكن تنفيذ إجراء (مثلاً قبول العرض)
+          offerItem.addEventListener('click', function() {
+            if (confirm("هل تريد قبول العرض المقدم بسعر " + offerData.proposedPrice + " من " + workerName + "؟")) {
+              acceptNegotiationOffer(childSnapshot.key, offerData);
+            }
+          });
+
+          dropdown.appendChild(offerItem);
+        }).catch(function(error) {
+          console.error("خطأ عند استرجاع اسم العامل:", error);
+        });
+      });
+    } else {
+      dropdown.innerHTML = "<p style='padding:8px;'>لا توجد عروض حالياً.</p>";
+    }
+  });
+}
+
+
+
+function acceptNegotiationOffer(offerId, offerData) {
+  // هنا يمكن تحديث حالة العرض في Firebase مثلاً
+  firebase.database().ref('negotiations/' + currentRequestId + '/' + offerId).update({
+    status: 'accepted'
+  }).then(function() {
+    alert("تم قبول العرض المقدم بسعر " + offerData.proposedPrice);
+    // يمكنك تنفيذ إجراءات إضافية مثل تحويل الطلب إلى حالة مقبولة
+  }).catch(function(error) {
+    console.error("حدث خطأ أثناء قبول العرض:", error);
+  });
 }
 
 

@@ -427,6 +427,31 @@
   background-color: #0056b3;
 }
 
+/* الأنماط الافتراضية للنافذة المنسدلة */
+#negotiationDropdown {
+  display: none;
+  position: absolute;
+  top: 50px;            /* ضبط الموضع بالنسبة للزر */
+  right: 10px;
+  background: #fff;
+  border: 1px solid #ccc;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.2);
+  z-index: 999;
+  max-height: 200px;
+  overflow-y: auto;
+  width: 90%;
+  padding: 5px;
+}
+
+/* أنماط خاصة بالشاشات الصغيرة */
+@media (max-width: 480px) {
+  #negotiationDropdown {
+    width: 95%;        /* زيادة العرض لتناسب شاشة أصغر */
+    top: 60px;         /* تعديل المسافة من الأعلى عند الحاجة */
+    right: 5%;         /* تعديل المسافة من اليمين */
+    font-size: 14px;   /* ضبط حجم الخط لجعل النص واضحاً */
+  }
+}
 
 
     </style>
@@ -2172,8 +2197,45 @@ document.getElementById('btnNegotiationOffers').addEventListener('click', functi
 });
 
 
+// مراقب لحالة الطلب
+function monitorRequestStatusForNegotiations(requestId) {
+  var statusRef = firebase.database().ref('workRequests/' + requestId + '/status');
+  statusRef.on('value', function(snapshot) {
+    var status = snapshot.val();
+    var dropdown = document.getElementById('negotiationDropdown');
+    
+    // تحقق من حالة الطلب
+    if (status === "pending" || status === "accepted") {
+      // عرض القائمة إذا كانت مخفية
+      dropdown.style.display = "block";
+      // تحميل عروض التفاوض (أو إعادة تحميلها إذا تغيرت)
+      loadNegotiationOffers();
+    } else {
+      // في حالة انتهاء أو إلغاء الطلب: تفريغ وإخفاء القائمة
+      dropdown.innerHTML = "";
+      dropdown.style.display = "none";
+      console.log("تم إخفاء عروض التفاوض لأن حالة الطلب هي: " + status);
+    }
+  });
+}
+
+// تعديل حدث الضغط على زر عرض التفاوض
+document.getElementById('btnNegotiationOffers').addEventListener('click', function () {
+  // قبل إظهار القائمة، نبدأ بمراقبة حالة الطلب
+  if (!currentRequestId) {
+    console.error("معرف الطلب غير معروف.");
+    return;
+  }
+  // تعيين المراقب لحالة الطلب
+  monitorRequestStatusForNegotiations(currentRequestId);
+});
+
+
 
 function loadNegotiationOffers() {
+  var dropdown = document.getElementById('negotiationDropdown');
+  
+  // التأكد من وجود معرف الطلب
   if (!currentRequestId) {
     console.error("معرف الطلب غير معروف لتحديث عروض التفاوض.");
     return;
@@ -2181,44 +2243,80 @@ function loadNegotiationOffers() {
   
   // الحصول على مرجع لعقدة التفاوض الخاصة بالطلب الحالي
   var negotiationRef = firebase.database().ref('negotiations/' + currentRequestId);
-
+  
   negotiationRef.on('value', function(snapshot) {
-    var dropdown = document.getElementById('negotiationDropdown');
     dropdown.innerHTML = ""; // تفريغ القائمة قبل إعادة التعبئة
-
-    if (snapshot.exists()) {
-      snapshot.forEach(function(childSnapshot) {
-        var offerData = childSnapshot.val();
-        var offerItem = document.createElement('div');
-        offerItem.style.padding = "8px";
-        offerItem.style.borderBottom = "1px solid #eee";
-        offerItem.style.cursor = "pointer";
-
-        // استرجاع اسم العامل باستخدام workerId الموجود في بيانات العرض
-        firebase.database().ref('workers/' + offerData.workerId + '/name').once('value').then(function(nameSnap) {
-          var workerName = nameSnap.val() || "العامل مجهول";
-          // تنسيق العرض: اسم العامل في السطر الأول، ثم السعر، ثم الرسالة
-          offerItem.innerHTML = `
-            <strong>${workerName}</strong><br>
-            السعر: ${offerData.proposedPrice}<br>
-            الرسالة: ${offerData.message}
-          `;
-
-          // عند الضغط على العرض يمكن تنفيذ إجراء (مثلاً قبول العرض)
-          offerItem.addEventListener('click', function() {
-            if (confirm("هل تريد قبول العرض المقدم بسعر " + offerData.proposedPrice + " من " + workerName + "؟")) {
-              acceptNegotiationOffer(childSnapshot.key, offerData);
-            }
-          });
-
-          dropdown.appendChild(offerItem);
-        }).catch(function(error) {
-          console.error("خطأ عند استرجاع اسم العامل:", error);
+    
+    // فقط في حالة استمرار كون الطلب نشط، نقوم بعرض العروض
+    firebase.database().ref('workRequests/' + currentRequestId + '/status').once('value').then(function(statusSnap) {
+      var status = statusSnap.val();
+      if (status !== "pending" && status !== "accepted") {
+        // إذا تغيرت الحالة، لا نقوم بتحميل العروض
+        dropdown.innerHTML = "";
+        return;
+      }
+      
+      if (snapshot.exists()) {
+        snapshot.forEach(function(childSnapshot) {
+          var offerData = childSnapshot.val();
+          var offerId = childSnapshot.key;
+          var offerItem = document.createElement('div');
+          offerItem.style.padding = "8px";
+          offerItem.style.borderBottom = "1px solid black";
+          offerItem.style.marginBottom = "5px";
+          
+          // استرجاع اسم العامل وتنسيقه
+          firebase.database().ref('workers/' + offerData.workerId + '/name').once('value')
+            .then(function(nameSnap) {
+              var workerName = nameSnap.val() || "العامل مجهول";
+              // تنسيق العرض: "عرض العامل:" يليه الاسم، ومن ثم السعر والرسالة
+              var offerHTML = `
+                <span style="font-size:14px; font-weight:normal;">عرض العامل: <strong style="font-size:14px;">${workerName}</strong></span><br>
+                السعر: ${offerData.proposedPrice}<br>
+                الرسالة: ${offerData.message}<br>
+              `;
+              offerItem.innerHTML = offerHTML;
+              
+              // إنشاء حاوية للأزرار
+              var buttonContainer = document.createElement('div');
+              buttonContainer.style.marginTop = "5px";
+              
+              // زر "قبول"
+              var acceptBtn = document.createElement('button');
+              acceptBtn.textContent = "قبول";
+              acceptBtn.style.marginRight = "5px";
+              acceptBtn.addEventListener('click', function() {
+                acceptNegotiationOffer(offerId, offerData);
+              });
+              buttonContainer.appendChild(acceptBtn);
+              
+              // زر "رفض"
+              var rejectBtn = document.createElement('button');
+              rejectBtn.textContent = "رفض";
+              rejectBtn.style.marginRight = "5px";
+              rejectBtn.addEventListener('click', function() {
+                rejectNegotiationOffer(offerId, offerData);
+              });
+              buttonContainer.appendChild(rejectBtn);
+              
+              // زر "اقتراح سعر آخر"
+              var counterBtn = document.createElement('button');
+              counterBtn.textContent = "اقتراح سعر آخر";
+              counterBtn.addEventListener('click', function() {
+                openCounterOfferForm(offerId, offerData);
+              });
+              buttonContainer.appendChild(counterBtn);
+              
+              offerItem.appendChild(buttonContainer);
+              dropdown.appendChild(offerItem);
+            }).catch(function(error) {
+              console.error("خطأ عند استرجاع اسم العامل:", error);
+            });
         });
-      });
-    } else {
-      dropdown.innerHTML = "<p style='padding:8px;'>لا توجد عروض حالياً.</p>";
-    }
+      } else {
+        dropdown.innerHTML = "<p style='padding:8px;'>لا توجد عروض حالياً.</p>";
+      }
+    });
   });
 }
 

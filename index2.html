@@ -475,7 +475,7 @@
          <div id="jobNotes" style="margin-top:10px; padding:10px; border-top:1px solid #ccc; font-size:14px; color:#555;">
              <p><strong>ملاحظات هامة:</strong></p>
              <p>- يتم تسجيل جميع إجراءات القبول والرفض في قاعدة البيانات.</p>
-             <p>- عند الاقتراب إلى أقل من 500 متر من موقع الطلب، لن تتمكن من إلغاء الطلب.</p>
+             <p>- إذا قمت بقبول الطلب، سيتم تسجيله في قاعدة البيانات ولن تتمكن من إلغائه .</p>
              <p>- إذا لم يرد العميل عند الاتصال، يرجى إرسال رسالة نصية إلى الشركة تتضمن اسم ورقم المستخدم، أو إبلاغ الفرع عند الحضور بنهاية الشهر.</p>
              <p>نلتزم بالجودة والاحترافية لضمان سير العمل بكفاءة.</p>
          </div>
@@ -551,12 +551,12 @@
 
 
   
-
 <!-- زر إلغاء الطلب الآن موجود على الشاشة الرئيسية -->
 <div id="cancelJobContainer" style="display:none; position: fixed; bottom: 20px; left: 20px; z-index: 1000;">
-    <button id="cancelJobButton" class="controlButton" style="background-color: #d9534f;">إلغاء الطلب</button>
-    
+  <button id="cancelJobButton" class="controlButton" style="background-color: #d9534f;">إلغاء الطلب</button>
+  
 </div>
+
 
 
 
@@ -619,9 +619,10 @@
     </div>
 
 <!-- حاوية عرض معلومات ETA تبقى في الأسفل -->
-<div id="etaPanel" style="position: fixed; bottom: 60px; left: 50%; transform: translateX(-50%); background: white; padding: 10px; border-radius: 5px; z-index: 4;">
-    <p id="etaDisplay"></p>
+<div id="etaPanel" style="position: fixed; bottom: 60px; left: 50%; transform: translateX(-50%); background: white; padding: 10px; border-radius: 5px; z-index: 1;">
+  <p id="etaDisplay"></p>
 </div>
+
 
 <!-- حاوية العد التنازلي تظهر في أعلى الصفحة بحجم خط أصغر -->
 <div id="countdownPanel" style="position: fixed; top: 10px; left: 50%; transform: translateX(-50%); background: #fff; padding: 5px 8px; border-radius: 5px; z-index: 4; font-size: 12px;">
@@ -982,6 +983,7 @@ function ensureTurf(callback, timeout = 5000) {
 }
 
 // دالة لتحديث طبقة المسار على الخريطة مع تسجيل التفاصيل
+// الدالة التي تُحدث طبقة المسار على الخريطة مع زيادة سماكة الخط إلى 8
 function updateRouteLayer(route) {
     console.log("🔄 تحديث طبقة المسار على الخريطة...");
     window.currentRouteData = {
@@ -1001,10 +1003,46 @@ function updateRouteLayer(route) {
                 data: window.currentRouteData
             },
             layout: { 'line-join': 'round', 'line-cap': 'round' },
-            paint: { 'line-color': '#3887be', 'line-width': 5 }
+            paint: { 'line-color': '#3887be', 'line-width': 8 }
         });
     }
 }
+
+
+function updateDynamicRoute(workerLocation, fullRoute) {
+    // التأكد من تحميل مكتبة turf قبل المتابعة
+    ensureTurf(function() {
+        try {
+            // إنشاء نقطة من موقع العامل الحالي
+            const workerPoint = turf.point([workerLocation.lng, workerLocation.lat]);
+            // تحويل المسار الكامل إلى خط
+            const routeLine = turf.lineString(fullRoute.coordinates);
+
+            // إيجاد أقرب نقطة على المسار لموقع العامل
+            const snapped = turf.nearestPointOnLine(routeLine, workerPoint, { units: 'kilometers' });
+
+            // نقطة نهاية المسار (موقع الطلب)
+            const endCoord = routeLine.geometry.coordinates[routeLine.geometry.coordinates.length - 1];
+
+            // قص المسار من النقطة الأقرب إلى النهاية
+            let remainingRoute = turf.lineSlice(snapped, turf.point(endCoord), routeLine);
+
+            // 🟢 تحسين جديد: تنعيم المسار لتقليل الانحرافات الحادة
+            remainingRoute = turf.simplify(remainingRoute, {
+                tolerance: 0.0005,     // كلما كانت أصغر زادت الدقة
+                highQuality: true      // تستخدم خوارزمية تنعيم دقيقة
+            });
+
+            console.log("✅ تم تحديث المسار الديناميكي وتطبيق التنعيم.");
+
+            // تحديث طبقة الخريطة بالمسار المتبقي
+            updateRouteLayer(remainingRoute);
+        } catch (error) {
+            console.error("❌ خطأ أثناء تحديث المسار الديناميكي:", error);
+        }
+    });
+}
+
 
 // دالة مساعدة لتحديد الرسالة التي تُعرض عند نهاية المسار
 function getRouteCompletionMessage(remainingDistanceKm) {
@@ -1040,64 +1078,76 @@ function showRoute(workerLocation, jobLocation) {
             const distance = distanceKM * 1000;
             console.log(`📏 المسافة المحسوبة: ${distance.toFixed(2)} متر (${distanceKM.toFixed(2)} كم)`);
 
-            let offset = 0;
-            if (distance > 900) {
-                offset = 800;
-                console.log("ℹ️ المسافة > 900 متر، سيتم قص المسار ليكون النهاية على بعد 800 متر.");
-            } else if (distance > 500) {
-                offset = 400;
-                console.log("ℹ️ المسافة بين 500 و900 متر، سيتم قص المسار ليكون النهاية على بعد 400 متر.");
-            } else {
-                offset = 0;
-                console.log("ℹ️ المسافة ≤ 500 متر، سيتم رسم المسار مباشرةً إلى الموقع.");
-            }
-            
-            if (offset > 0) {
-                console.log("🔎 سيتم تعديل المسار باستخدام مكتبة turf مع offset =", offset);
-                ensureTurf(function() {
-                    try {
-                        const routeLine = turf.lineString(route.coordinates);
-                        const totalLength = turf.length(routeLine, { units: 'kilometers' });
-                        const stopDistance = totalLength - (offset / 1000);
-                        const clampedStopDistance = stopDistance > 0 ? stopDistance : 0;
-                        const newEndPoint = turf.along(routeLine, clampedStopDistance, { units: 'kilometers' });
-                        const slicedRoute = turf.lineSlice(route.coordinates[0], newEndPoint, routeLine);
-                        console.log("✅ النقطة الجديدة للمسار:", newEndPoint.geometry.coordinates);
-                        updateRouteLayer(slicedRoute.geometry);
-                        console.log("✅ تم تحديث طبقة المسار بنجاح بعد التعديل مع قطع المسار.");
+            // الكود التالي كان مسؤولًا عن حساب offset وتعديل المسار باستخدام مكتبة turf.
+            // وقد تم إلغاء هذه الميزة لجعل المسار يظهر إلى موقع الطلب مباشرةً.
+            //
+            // let offset = 0;
+            // if (distance > 900) {
+            //     offset = 800;
+            //     console.log("ℹ️ المسافة > 900 متر، سيتم قص المسار ليكون النهاية على بعد 800 متر.");
+            // } else if (distance > 500) {
+            //     offset = 400;
+            //     console.log("ℹ️ المسافة بين 500 و900 متر، سيتم قص المسار ليكون النهاية على بعد 400 متر.");
+            // } else {
+            //     offset = 0;
+            //     console.log("ℹ️ المسافة ≤ 500 متر، سيتم رسم المسار مباشرةً إلى الموقع.");
+            // }
+            //
+            // if (offset > 0) {
+            //     console.log("🔎 سيتم تعديل المسار باستخدام مكتبة turf مع offset =", offset);
+            //     ensureTurf(function() {
+            //         try {
+            //             const routeLine = turf.lineString(route.coordinates);
+            //             const totalLength = turf.length(routeLine, { units: 'kilometers' });
+            //             const stopDistance = totalLength - (offset / 1000);
+            //             const clampedStopDistance = stopDistance > 0 ? stopDistance : 0;
+            //             const newEndPoint = turf.along(routeLine, clampedStopDistance, { units: 'kilometers' });
+            //             const slicedRoute = turf.lineSlice(route.coordinates[0], newEndPoint, routeLine);
+            //             console.log("✅ النقطة الجديدة للمسار:", newEndPoint.geometry.coordinates);
+            //             updateRouteLayer(slicedRoute.geometry);
+            //             console.log("✅ تم تحديث طبقة المسار بنجاح بعد التعديل مع قطع المسار.");
+            //
+            //             // إنشاء Popup ثابت لعرض الرسالة في نهاية المسار
+            //             const message = getRouteCompletionMessage(clampedStopDistance);
+            //             if (window.routeTextPopup) {
+            //                 window.routeTextPopup.remove();
+            //             }
+            //             window.routeTextPopup = new mapboxgl.Popup({
+            //                     closeButton: false,
+            //                     closeOnClick: false,
+            //                     offset: 25
+            //                 })
+            //                 .setLngLat(newEndPoint.geometry.coordinates)
+            //                 .setHTML(`<div style="font-size:14px; color:#ff5722; font-weight:bold;">${message}</div>`)
+            //                 .addTo(map);
+            //         } catch (error) {
+            //             console.error("❌ خطأ أثناء حساب وتحديث المسار باستخدام turf:", error);
+            //         }
+            //     });
+            // } else {
+            //     console.log("ℹ️ لا يلزم تعديل نقطة النهاية، سيتم رسم المسار كما هو.");
+            //     updateRouteLayer(route);
+            //     if (window.routeTextPopup) {
+            //         window.routeTextPopup.remove();
+            //         window.routeTextPopup = null;
+            //     }
+            // }
 
-                        // إنشاء Popup ثابت لعرض الرسالة في نهاية المسار
-                        const message = getRouteCompletionMessage(clampedStopDistance);
-                        // إذا كان هناك Popup سابق قم بإزالته أولاً
-                        if (window.routeTextPopup) {
-                            window.routeTextPopup.remove();
-                        }
-                        window.routeTextPopup = new mapboxgl.Popup({
-                                closeButton: false,
-                                closeOnClick: false,
-                                offset: 25
-                            })
-                            .setLngLat(newEndPoint.geometry.coordinates)
-                            .setHTML(`<div style="font-size:14px; color:#ff5722; font-weight:bold;">${message}</div>`)
-                            .addTo(map);
-                    } catch (error) {
-                        console.error("❌ خطأ أثناء حساب وتحديث المسار باستخدام turf:", error);
-                    }
-                });
-            } else {
-                console.log("ℹ️ لا يلزم تعديل نقطة النهاية، سيتم رسم المسار كما هو.");
-                updateRouteLayer(route);
-                // إزالة أي Popup سابق إذا كان موجوداً
-                if (window.routeTextPopup) {
-                    window.routeTextPopup.remove();
-                    window.routeTextPopup = null;
-                }
+            // التعديل الجديد: رسم المسار الكامل إلى موقع الطلب دون أي تعديلات.
+            console.log("ℹ️ سيتم رسم المسار كاملًا إلى موقع الطلب دون تعديل نقطة النهاية.");
+            updateRouteLayer(route);
+
+            // إزالة أي Popup سابق متعلق بتعديل المسار، إن وجد.
+            if (window.routeTextPopup) {
+                window.routeTextPopup.remove();
+                window.routeTextPopup = null;
             }
         })
         .catch(error => {
             console.error("❌ حدث خطأ أثناء استدعاء API أو معالجة البيانات:", error);
         });
 }
+
 
 
 
@@ -1493,7 +1543,6 @@ function startRealTimeETATracking(workerLocation, jobLocation) {
     
     const intervalId = setInterval(() => {
         console.log("قيمة orderCanceled:", orderCanceled);
-        // إذا كان الطلب ملغى، يتم إيقاف المؤقت وعدم التحديث
         if (orderCanceled) {
             clearInterval(intervalId);
             console.log("تم إيقاف تتبع ETA لأن الطلب ملغى.");
@@ -1504,19 +1553,17 @@ function startRealTimeETATracking(workerLocation, jobLocation) {
                 console.error("خطأ في حساب ETA:", err);
                 return;
             }
-            // تحديث عرض ETA
             updateETADisplay(data.duration, data.distance, etaDisplay);
-            
-            // التحقق من المسافة بين العامل وموقع الطلب
             const distance = calculateDistance(workerLocation, jobLocation);
             if (distance <= 0.5 && window.fullPhone) {
                 document.getElementById('userPhone').innerText = `رقم الهاتف: ${window.fullPhone}`;
             }
         });
-    }, 5000); // التحديث كل 15 ثانية
+    }, 60000); // التحديث كل 60000 مللي ثانية = دقيقة واحدة
     console.log("تم بدء تتبع ETA في الوقت الحقيقي");
     return intervalId;
 }
+
 
 
 function formatTime(ms) {
@@ -1527,32 +1574,32 @@ function formatTime(ms) {
   return `${hours} ساعة ${minutes} دقيقة ${seconds} ثانية`;
 }
 
-// دالة التحقق وإلغاء الطلب عند انتهاء المهلة
-function checkAndCancelRequest() {
-  // جلب بيانات الطلب من Firebase
+// دالة التحقق وإكمال الطلب عند انتهاء المهلة (3 ساعات)
+function checkAndFinishRequest() {
   firebase.database().ref(`workRequests/${currentRequestId}`).once("value")
     .then(snapshot => {
       const order = snapshot.val();
-      // إذا كانت حالة الطلب finished بالفعل، فلا نقوم بأي إجراء
+      // إذا كانت حالة الطلب finished بالفعل، لا نقوم بأي إجراء
       if (order && order.status === "finished") {
-        console.log("الطلب منتهي بالفعل (finished)، لن يتم تحويل حالته.");
+        console.log("الطلب منتهي بالفعل (finished).");
         return;
       }
       
       // التأكد من أن حالة الطلب ما زالت "accepted"
       if (order && order.status === "accepted") {
-        // تغيير حالة الطلب إلى "pending"
+        // تحديث حالة الطلب إلى "finished" مع تسجيل توقيت الإكمال
         firebase.database().ref(`workRequests/${currentRequestId}`).update({
-          status: "pending"
+          status: "finished",
+          completedAt: Date.now()
         }).then(() => {
-          // إزالة نص المسار إذا كان موجوداً
+          // إزالة نص المسار (إذا كان موجوداً)
           if (window.routeTextPopup) {
             window.routeTextPopup.remove();
             window.routeTextPopup = null;
             console.log("تم إزالة نص المسار من الخريطة.");
           }
           
-          // إخفاء طبقة المسار (خط المسار)
+          // إزالة طبقة المسار من الخريطة
           if (map && map.getLayer('route')) {
             map.removeLayer('route');
             map.removeSource('route');
@@ -1577,14 +1624,13 @@ function checkAndCancelRequest() {
             console.log("تم إخفاء نافذة حساب المسافة.");
           }
           
-          // عرض التنبيه فقط إذا كانت الحالة "accepted" ولم تتحول إلى finished
-          alert("انتهى الوقت وتم إلغاء الطلب بسبب انتهاء المهلة المحددة (3 ساعات).");
-          console.log("تم إلغاء الطلب وتحويل حالته من accepted إلى pending.");
+          // عرض رسالة توضيحية للمستخدم عند انتهاء المهلة
+          alert("انقضت 3 ساعات وتم تسجيل الطلب كمنتهي (finished).");
+          console.log("تم تحديث حالة الطلب إلى finished بعد انقضاء المهلة.");
           
           // إعادة تعيين المتغيرات للسماح بقبول طلب جديد
           activeRequestExists = false;
           currentRequestId = null;
-          
         }).catch(error => {
           console.error("خطأ في تحديث حالة الطلب:", error);
         });
@@ -1594,6 +1640,7 @@ function checkAndCancelRequest() {
     })
     .catch(error => console.error("خطأ في جلب بيانات الطلب:", error));
 }
+
 
 
 function startCountdown(duration, targetElement, onComplete) {
@@ -1832,6 +1879,12 @@ function loginWorker() {
 
 
   function submitNegotiation() {
+  // تعطيل زر إرسال التفاوض لتفادي الضغط المتكرر
+  document.querySelector("button[onclick='submitNegotiation()']").disabled = true;
+  setTimeout(() => {
+    document.querySelector("button[onclick='submitNegotiation()']").disabled = false;
+  }, 3000); // إعادة تفعيل الزر بعد 3 ثوانٍ
+
   const proposedPrice = document.getElementById('proposedPrice').value;
   let negotiationMessage = document.getElementById('negotiationMessage').value;
   
@@ -1847,15 +1900,10 @@ function loginWorker() {
     return;
   }
   
-  // استخراج جميع الأرقام من النص
+  // استخراج الأرقام من النص للتأكد من عدم احتوائه على رقم هاتف ليبي
   const digitsOnly = negotiationMessage.replace(/\D/g, '');
-  
-  // إذا كان التجميع يحتوي على 9 أرقام على الأقل ويتطابق مع بادئة رقم ليبي (يجب أن يبدأ بـ "9" أو "09" مثلاً)
   if (digitsOnly.length >= 9 && /^(?:0?9[2-5])/.test(digitsOnly)) {
-    // نحاول إزالة الجزء الذي يُشكّل رقم الهاتف من النص الأصلي باستخدام تعبير نمطي مرن يقبل وجود أحرف بين الأرقام
-    // (?:\+?218|0)? --> يقبل بادئة الدولة (+218 أو 218) أو البادئة "0"
-    // \D*9[2-5] --> يتوقع ظهور الرقم 9 متبوعاً برقم من 2 إلى 5 مع إمكانية وجود فواصل
-    // (?:\D*\d){7,} --> يتوقع وجود 7 أرقام على الأقل بعد البادئة مع إمكانية وجود فواصل بينهما.
+    // إزالة الرقم من الرسالة باستخدام تعبير نمطي يقبل بعض الفواصل والأحرف
     negotiationMessage = negotiationMessage.replace(/(?:\+?218|0)?\D*9[2-5](?:\D*\d){7,}/, '').trim();
     alert('تم إزالة رقم الهاتف لأنه يمنع كتابته في رسالة التفاوض.');
   }
@@ -1882,19 +1930,10 @@ function loginWorker() {
     return;
   }
   
-  firebase.database().ref(`negotiations/${currentRequestId}`).push(negotiationData)
-    .then(() => {
-      alert('تم إرسال عرض التفاوض بنجاح!');
-      closeNegotiationForm();
-    })
-    .catch(error => {
-      console.error("خطأ في إرسال عرض التفاوض:", error);
-      alert('حدث خطأ أثناء الإرسال.');
-    });
-  
-  // تعطيل المستمع قبل عملية الإرسال لإعادة تفعيلها لاحقاً
+  // تعطيل المستمع قبل عملية الإرسال
   allowNegotiationListener = false;
   
+  // إرسال العرض لمرة واحدة فقط
   firebase.database().ref(`negotiations/${currentRequestId}`).push(negotiationData)
     .then(() => {
       // إعادة تفعيل المستمع بعد نجاح الإرسال
@@ -1906,10 +1945,11 @@ function loginWorker() {
     .catch(error => {
       console.error("خطأ في إرسال عرض التفاوض:", error);
       alert('حدث خطأ أثناء الإرسال.');
-      // حتى في حالة الخطأ، نعيد تفعيل المستمع
+      // إعادة تفعيل المستمع حتى في حالة الخطأ
       allowNegotiationListener = true;
     });
 }
+
 
 
 
@@ -2242,8 +2282,8 @@ function updateLocationWithGPS(workerId) {
             checkAndUpdateOrderStatus();
             
             // استدعاء دالة أخرى للتحكم في إظهار زر الإلغاء
-            checkDistanceAndToggleCancelButton();
-        }, (error) => {
+// checkDistanceAndToggleCancelButton();
+}, (error) => {
             console.error("🚨 197 خطأ أثناء تتبع الموقع:", error);
         }, { enableHighAccuracy: true, timeout: 5000, maximumAge: 0 });
     } else {
@@ -2321,59 +2361,61 @@ setInterval(() => {
 
 // دالة إلغاء الطلب وإخفاء المميزات المتعلقة به
 // (في حالة قبول طلب من قبل العامل الآخر، قد تستخدم دالة إلغاء مستقلة)
-function cancelOrder(reason) {
-    if (!currentRequestId) return;
+// function cancelOrder(reason) {
+//     if (!currentRequestId) return;
     
-    firebase.database().ref(`workRequests/${currentRequestId}`).update({
-        status: "canceled",
-        canceledAt: Date.now(),
-        canceledReason: reason
-    })
-    .then(() => {
-        console.log("تم إلغاء الطلب بسبب:", reason);
+//     firebase.database().ref(`workRequests/${currentRequestId}`).update({
+//         status: "canceled",
+//         canceledAt: Date.now(),
+//         canceledReason: reason
+//     })
+//     .then(() => {
+//         console.log("تم إلغاء الطلب بسبب:", reason);
         
-        // ضبط العلم لإيقاف مؤقتات التحديث
-        orderCanceled = true;
+//         // ضبط العلم لإيقاف مؤقتات التحديث
+//         orderCanceled = true;
         
-        // إلغاء مؤقت تتبع ETA إذا وجد
-        if (window.etaIntervalId) {
-            clearInterval(window.etaIntervalId);
-            window.etaIntervalId = null;
-        }
+//         // إلغاء مؤقت تتبع ETA إذا وجد
+//         if (window.etaIntervalId) {
+//             clearInterval(window.etaIntervalId);
+//             window.etaIntervalId = null;
+//         }
         
-        // إلغاء مؤقت العد التنازلي إذا وجد
-        if (window.countdownIntervalId) {
-            clearInterval(window.countdownIntervalId);
-            window.countdownIntervalId = null;
-        }
+//         // إلغاء مؤقت العد التنازلي إذا وجد
+//         if (window.countdownIntervalId) {
+//             clearInterval(window.countdownIntervalId);
+//             window.countdownIntervalId = null;
+//         }
         
-        hideCancelButton();
+//         hideCancelButton();
         
-        // إخفاء لوحات العد والETA وعدم إعادة ظهورها
-        const countdownPanel = document.getElementById('countdownPanel');
-        if (countdownPanel) countdownPanel.style.display = 'none';
-        const etaPanel = document.getElementById('etaPanel');
-        if (etaPanel) etaPanel.style.display = 'none';
+//         // إخفاء لوحات العد والETA وعدم إعادة ظهورها
+//         const countdownPanel = document.getElementById('countdownPanel');
+//         if (countdownPanel) countdownPanel.style.display = 'none';
+//         const etaPanel = document.getElementById('etaPanel');
+//         if (etaPanel) etaPanel.style.display = 'none';
         
-        // إزالة طبقة المسار من الخريطة إن وجدت
-        if (map && map.getLayer('route')) {
-            map.removeLayer('route');
-            map.removeSource('route');
-        }
+//         // إزالة طبقة المسار من الخريطة إن وجدت
+//         if (map && map.getLayer('route')) {
+//             map.removeLayer('route');
+//             map.removeSource('route');
+//         }
         
-        removeRouteTextPopup();
-        showNotification("تم إلغاء الطلب لأنك لم تتحرك لمدة 15 دقيقة");
-    })
-    .catch(error => console.error("خطأ أثناء تحديث حالة الطلب:", error));
-}
+//         removeRouteTextPopup();
+//         showNotification("تم إلغاء الطلب لأنك لم تتحرك لمدة 15 دقيقة");
+//     })
+//     .catch(error => console.error("خطأ أثناء تحديث حالة الطلب:", error));
+// }
 
 
-// دالة لإخفاء زر إلغاء الطلب
+
+// دالة لإخفاء زر إلغاء الطلب (تم تعطيلها)
 function hideCancelButton() {
-    const cancelButton = document.getElementById('cancelJobButton');
-    if (cancelButton) {
-        cancelButton.style.display = 'none';
-    }
+    // تعطيل الوظيفة بحيث لا تقوم بأي إجراء
+    // const cancelButton = document.getElementById('cancelJobButton');
+    // if (cancelButton) {
+    //     cancelButton.style.display = 'none';
+    // }
 }
 
 // دالة لإظهار زر قبول الطلب عند إعادة الطلب لحالة pending
@@ -2434,33 +2476,34 @@ workerRequestsRef.on('child_added', snapshot => {
 
 
 
-function checkDistanceAndToggleCancelButton() {
-    // يظهر زر الإلغاء فقط إذا كان هناك طلب نشط (orderActive) ولم يُلغَ بعد
-    if (!currentRequestId || !orderActive) return;
-    firebase.database().ref(`workRequests/${currentRequestId}`).once('value')
-        .then(snapshot => {
-            const request = snapshot.val();
-            // إذا كان الطلب ملغى أو لم يعد في حالة "pending" فلا تظهر الخيارات
-            if (!request || request.status !== 'pending') {
-                document.getElementById('cancelJobContainer').style.display = 'none';
-                console.log("🔒 الطلب غير متاح للإلغاء، إخفاء زر الإلغاء.");
-                return;
-            }
-            if (request && request.location) {
-                const distance = calculateDistance(currentWorkerLocation, request.location);
-                console.log(`المسافة بين العامل والطلب: ${distance.toFixed(2)} كم`);
-                if (distance <= 0.5) {
-                    document.getElementById('cancelJobContainer').style.display = 'none';
-                    console.log('⏱️ إخفاء زر الإلغاء لأن العامل على بعد أقل من 500 متر.');
-                } else {
-                    document.getElementById('cancelJobContainer').style.display = 'block';
-                }
-            }
-        })
-        .catch(error => {
-            console.error('❌ خطأ أثناء حساب المسافة:', error);
-        });
-}
+// function checkDistanceAndToggleCancelButton() {
+//     // يظهر زر الإلغاء فقط إذا كان هناك طلب نشط (orderActive) ولم يُلغَ بعد
+//     if (!currentRequestId || !orderActive) return;
+//     firebase.database().ref(`workRequests/${currentRequestId}`).once('value')
+//         .then(snapshot => {
+//             const request = snapshot.val();
+//             // إذا كان الطلب ملغى أو لم يعد في حالة "pending" فلا تظهر الخيارات
+//             if (!request || request.status !== 'pending') {
+//                 document.getElementById('cancelJobContainer').style.display = 'none';
+//                 console.log("🔒 الطلب غير متاح للإلغاء، إخفاء زر الإلغاء.");
+//                 return;
+//             }
+//             if (request && request.location) {
+//                 const distance = calculateDistance(currentWorkerLocation, request.location);
+//                 console.log(`المسافة بين العامل والطلب: ${distance.toFixed(2)} كم`);
+//                 if (distance <= 0.5) {
+//                     document.getElementById('cancelJobContainer').style.display = 'none';
+//                     console.log('⏱️ إخفاء زر الإلغاء لأن العامل على بعد أقل من 500 متر.');
+//                 } else {
+//                     document.getElementById('cancelJobContainer').style.display = 'block';
+//                 }
+//             }
+//         })
+//         .catch(error => {
+//             console.error('❌ خطأ أثناء حساب المسافة:', error);
+//         });
+// }
+
 
 
 
@@ -2546,55 +2589,58 @@ function resetJobUI() {
 
 // مستمع حدث "إلغاء الطلب"
 document.getElementById('cancelJobButton').addEventListener('click', function() {
-    const distance = getWorkerDistance();
-    if (distance < 0.5) { 
-        alert("لقد سجلت تقدمك في المنظومة ولا يمكنك الإلغاء الآن.");
-        console.error("محاولة إلغاء الطلب أثناء اقتراب العامل من الموقع");
-        return;
-    } else {
-        if (!confirm("تنبيه: الطلب لن يُلغى إذا أصبحت قريباً (أقل من 500 متر) من الموقع. هل تريد المتابعة؟")) {
-            console.log("تم إلغاء عملية الإلغاء بناءً على تأكيد المستخدم.");
-            return;
-        }
-    }
+    // \\ تم تعليق الكود الخاص بالتحقق من المسافة وإصدار التنبيه والتأكيد بحيث لن يتم تنفيذ أي عملية إلغاء
+    // const distance = getWorkerDistance();
+    // if (distance < 0.5) { 
+    //     alert("لقد سجلت تقدمك في المنظومة ولا يمكنك الإلغاء الآن.");
+    //     console.error("محاولة إلغاء الطلب أثناء اقتراب العامل من الموقع");
+    //     return;
+    // } else {
+    //     if (!confirm("تنبيه: الطلب لن يُلغى إذا أصبحت قريباً (أقل من 500 متر) من الموقع. هل تريد المتابعة؟")) {
+    //         console.log("تم إلغاء عملية الإلغاء بناءً على تأكيد المستخدم.");
+    //         return;
+    //     }
+    // }
     
-    showCancelConfirmation(function() {
-        const requestRef = firebase.database().ref(`workRequests/${currentRequestId}`);
-        const workerId = window.currentWorkerId || currentWorkerId;
-        
-        // تحديث الحالة إلى canceled_by_worker مع تسجيل بيانات الإلغاء
-        requestRef.update({ 
-            status: 'canceled_by_worker',
-            canceled_by: workerId,
-            canceledAt: Date.now()
-        })
-        .then(() => {
-            // إرسال الإشعار بناءً على التغيير الأول في الحالة
-            window.sendPusherNotification(window.selectedWorkerId, 'تم إلغاء الطلب من قبل العامل.');
-            // إعادة حالة الطلب إلى pending لتفعيلها مجدداً
-            return requestRef.update({ status: 'pending' });
-        })
-        .then(() => {
-            alert('تم إلغاء الطلب.');
-            resetJobUI(); // استدعاء إعادة تهيئة الواجهة لإزالة المسار والنص
-            
-            // إيقاف تتبع ETA والعد التنازلي
-            if (window.etaIntervalId) {
-                clearInterval(window.etaIntervalId);
-                window.etaIntervalId = null;
-                console.log("تم إيقاف تتبع ETA.");
-            }
-            if (window.countdownIntervalId) {
-                clearInterval(window.countdownIntervalId);
-                window.countdownIntervalId = null;
-                console.log("تم إيقاف العد التنازلي.");
-            }
-        })
-        .catch((err) => {
-            console.error("خطأ في تحديث حالة الطلب:", err);
-        });
-    });
+    // \\ تم تعليق الكود الخاص بتحديث حالة الطلب في قاعدة البيانات وإرسال الإشعارات وإعادة ضبط واجهة المستخدم
+    // showCancelConfirmation(function() {
+    //     const requestRef = firebase.database().ref(`workRequests/${currentRequestId}`);
+    //     const workerId = window.currentWorkerId || currentWorkerId;
+    //     
+    //     // تحديث الحالة إلى canceled_by_worker مع تسجيل بيانات الإلغاء
+    //     requestRef.update({ 
+    //         status: 'canceled_by_worker',
+    //         canceled_by: workerId,
+    //         canceledAt: Date.now()
+    //     })
+    //     .then(() => {
+    //         // إرسال الإشعار بناءً على التغيير الأول في الحالة
+    //         window.sendPusherNotification(window.selectedWorkerId, 'تم إلغاء الطلب من قبل العامل.');
+    //         // إعادة حالة الطلب إلى pending لتفعيلها مجدداً
+    //         return requestRef.update({ status: 'pending' });
+    //     })
+    //     .then(() => {
+    //         alert('تم إلغاء الطلب.');
+    //         resetJobUI(); // إعادة تهيئة الواجهة لإزالة المسار والنص
+    //         
+    //         // إيقاف تتبع ETA والعد التنازلي
+    //         if (window.etaIntervalId) {
+    //             clearInterval(window.etaIntervalId);
+    //             window.etaIntervalId = null;
+    //             console.log("تم إيقاف تتبع ETA.");
+    //         }
+    //         if (window.countdownIntervalId) {
+    //             clearInterval(window.countdownIntervalId);
+    //             window.countdownIntervalId = null;
+    //             console.log("تم إيقاف العد التنازلي.");
+    //         }
+    //     })
+    //     .catch((err) => {
+    //         console.error("خطأ في تحديث حالة الطلب:", err);
+    //     });
+    // });
 });
+
 
 
 
@@ -3209,30 +3255,35 @@ if (currentWorkerLocation && jobLocation) {
 
 
 document.getElementById('viewNegotiationReplies').addEventListener('click', function() {
-    // تأكد من قيمة currentRequestId
     console.log('🔍 فتح ردود التفاوض للطلب:', currentRequestId);
-
     document.getElementById('negotiationRepliesPanel').style.display = 'block';
     
-    // جلب بيانات الطلب أولاً للحصول على وصف الطلب
+    // أولاً نقوم بجلب بيانات الطلب للحصول على وصف الطلب والتحقق من حالته
     firebase.database().ref(`workRequests/${currentRequestId}`).once('value')
     .then(function(orderSnapshot) {
         var orderData = orderSnapshot.val();
         var orderDescription = (orderData && orderData.description) ? orderData.description : "غير متوفر";
         
-        // بعد جلب بيانات الطلب نقوم بجلب ردود التفاوض
+        // إذا تغيرت حالة الطلب إلى finished أو deleted، نخفي بيانات الردود
+        if (orderData && (orderData.status === "finished" || orderData.status === "deleted")) {
+            console.log("⚠️ حالة الطلب أصبحت finished أو deleted. سيتم إخفاء الردود.");
+            document.getElementById('negotiationRepliesPanel').style.display = 'none';
+            return; // لا نقوم بمتابعة جلب الردود
+        }
+        
+        // الآن نقوم بجلب ردود التفاوض
         firebase.database().ref(`negotiations/${currentRequestId}`).on('value', function(snapshot) {
             console.log('📡 بيانات التفاوض المسترجعة:', snapshot.val());
-
             var repliesList = document.getElementById('negotiationRepliesList');
             repliesList.innerHTML = ''; // تفريغ المحتوى السابق
 
+            // متغير لتعقب وجود رد بحالة غير pending
+            let hasNonPendingReply = false;
+            
             snapshot.forEach(function(childSnapshot) {
                 var reply = childSnapshot.val();
-
-                // (اختياري) عرض الردود الخاصة بهذا العامل فقط
                 if (reply.workerId && reply.workerId !== currentWorkerId) return;
-
+                
                 var message = '';
                 switch (reply.status) {
                     case 'pending':
@@ -3248,19 +3299,35 @@ document.getElementById('viewNegotiationReplies').addEventListener('click', func
                         message = "تم تقديم سعر آخر";
                         break;
                 }
-
-                // تفاصيل الرسالة (قد تكون في reply.message أو reply.details)
+                
                 var details = reply.message || reply.details || '';
-
-                // إنشاء العنصر الذي سيعرض الرد مع وصف الطلب
                 var listItem = document.createElement('div');
                 listItem.style.padding = '8px';
                 listItem.style.borderBottom = '1px solid #eee';
                 listItem.style.fontSize = '14px';
+                // دمج حالة الرد مع تفاصيله ووصف الطلب
                 listItem.innerText = message + (details ? " - " + details : "") + " | وصف الطلب: " + orderDescription;
+                
+                // إذا كان الرد غير pending، نعلم بذلك
+                if (reply.status !== 'pending') {
+                    hasNonPendingReply = true;
+                }
                 
                 repliesList.appendChild(listItem);
             });
+            
+            // إذا لم يكن هناك رد غير pending، نعرض عنصر placeholder "في انتظار الرد"
+            if (!hasNonPendingReply) {
+                var placeholderItem = document.createElement('div');
+                placeholderItem.style.padding = '8px';
+                placeholderItem.style.borderBottom = '1px solid #eee';
+                placeholderItem.style.fontSize = '14px';
+                placeholderItem.innerText = "في انتظار الرد";
+                // إذا لم يكن هناك أي عناصر في القائمة، نضيف العنصر
+                if (repliesList.childElementCount === 0) {
+                    repliesList.appendChild(placeholderItem);
+                }
+            }
         });
     })
     .catch(function(error) {
@@ -4171,8 +4238,20 @@ function addMarkersToMap() {
               return '#1E90FF';
             }
 
-            const offset = 300 / (111320 * Math.cos(request.location.lat * Math.PI / 180));
-            const shiftedCoordinates = [request.location.lng + offset, request.location.lat];
+// تحديد المسافة التي نريد بها انحراف الماركر (بالمتر)
+let offsetDistance = 300;
+
+// اختيار زاوية عشوائية (يمكن استبدال Math.random() بزر ثابت لتحديد جهة معينة مع تنوع بسيط)
+let randomAngle = Math.random() * 2 * Math.PI;
+
+// حساب الفرق في خط العرض: تقريبياً 1 درجة عرض ≈ 110540 متر
+let offsetLat = (offsetDistance * Math.sin(randomAngle)) / 110540;
+
+// حساب الفرق في خط الطول: تقريبياً 1 درجة طول ≈ 111320 متر * cos(lat)
+let offsetLng = (offsetDistance * Math.cos(randomAngle)) / (111320 * Math.cos(request.location.lat * Math.PI / 180));
+
+// تحديد الإحداثيات المنقولة بإضافة الإزاحة إلى الموقع الأصلي
+let shiftedCoordinates = [request.location.lng + offsetLng, request.location.lat + offsetLat];
 
             const geojson = {
               type: 'Feature',
@@ -4708,21 +4787,25 @@ if (currentWorkerLocation && jobLocation) {
 
 
             // التحقق من المسافة لتحديث زر الإلغاء
-            const distance = getWorkerDistance();
-            if (distance >= 0.5) {
-                document.getElementById('cancelJobContainer').style.display = 'block';
-                console.log("📍 تم إظهار زر إلغاء الطلب لأن المسافة:", distance.toFixed(2), "كم");
-            } else {
-                document.getElementById('cancelJobContainer').style.display = 'none';
-                alert("⚠️ الطلب لن يُلغى إذا أصبح العامل قريبًا (أقل من 500 متر) من الموقع.");
-                console.log("🚨 العامل قريب جدًا ولا يمكن إلغاء الطلب. المسافة:", distance.toFixed(2), "كم");
-            }
+// التحقق من المسافة لتحديث زر الإلغاء
+const distance = getWorkerDistance();
+if (distance >= 0.5) {
+    // تم تعطيل إظهار زر الإلغاء
+    // document.getElementById('cancelJobContainer').style.display = 'block';
+    console.log("📍 تم تجاوز المسافة المطلوبة، ولكن لم يتم إظهار زر الإلغاء (تم تعطيله يدويًا). المسافة:", distance.toFixed(2), "كم");
+} else {
+    document.getElementById('cancelJobContainer').style.display = 'none';
+    alert("⚠️ الطلب لن يُلغى إذا أصبح العامل قريبًا (أقل من 500 متر) من الموقع.");
+    console.log("🚨 العامل قريب جدًا ولا يمكن إلغاء الطلب. المسافة:", distance.toFixed(2), "كم");
+}
+
 
             // بدء العد التنازلي لإنهاء الطلب إذا لم يُنفذ خلال مدة معينة
             const countdownElement = document.getElementById('countdownTimer');
             if (countdownElement) {
                 startCountdown(3 * 60 * 60 * 1000, countdownElement, () => {
-                    cancelRequestDueToTimeout(currentRequestId);
+                  console.log("⏳ انتهى الوقت المخصص لتنفيذ الطلب (3 ساعات). لا يوجد إجراء تلقائي.");
+                  cancelRequestDueToTimeout(currentRequestId);
                 });
             } else {
                 console.error("⚠️ عنصر 'countdownTimer' غير موجود في الصفحة.");
@@ -4821,7 +4904,8 @@ if (typeof map !== 'undefined' && map instanceof mapboxgl.Map) {
         });
 
 
-        function cancelRequestDueToTimeout(requestId, workerId, workerName) {
+/*
+function cancelRequestDueToTimeout(requestId, workerId, workerName) {
     const requestRef = database.ref(`workRequests/${requestId}`);
     
     // تحديث الحالة مع الاحتفاظ بآخر عامل ألغى الطلب
@@ -4851,6 +4935,8 @@ if (typeof map !== 'undefined' && map instanceof mapboxgl.Map) {
         console.error(`❌ خطأ أثناء إلغاء الطلب ${requestId}:`, error);
     });
 }
+*/
+
 
 
 

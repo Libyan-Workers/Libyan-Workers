@@ -576,6 +576,8 @@
       <option value="light">الوضع الفاتح</option>
     </select>
     <button id="requestWater" class="controlButton">طلب ماء</button>
+   
+    <button id="viewNegotiationReplies" class="controlButton" style="background-color: #808080;">ردود التفاوض</button>
     <div id="weatherInfo"></div>
     <div id="workerInfo"></div>
   </div>
@@ -677,6 +679,16 @@
 </div>
 
 
+<!-- لوحة عرض ردود التفاوض -->
+<div id="negotiationRepliesPanel" style="display:none; position: fixed; top: 15%; left: 10%; width: 80%; height: 70%; background: #fff; border: 2px solid #ccc; border-radius: 10px; z-index: 2000; overflow-y: auto; box-shadow: 0 4px 8px rgba(0,0,0,0.2);">
+  <div style="display: flex; justify-content: space-between; align-items: center; padding: 10px; border-bottom: 1px solid #ccc;">
+      <h3 style="margin: 0;">ردود التفاوض</h3>
+      <button onclick="document.getElementById('negotiationRepliesPanel').style.display='none'" style="background: none; border: none; font-size: 18px; cursor: pointer;">×</button>
+  </div>
+  <div id="negotiationRepliesList" style="padding: 10px;">
+      <!-- ستُضاف العناصر هنا -->
+  </div>
+</div>
 
 
 <!-- مكتبات Firebase App و Messaging -->
@@ -2978,64 +2990,53 @@ function saveRequestForLater(requestData, requestId) {
 
 // تعديل مستمع الطلبات
 const requestRef = database.ref('workRequests');
-let initialRequestsLoaded = false;
 
-// تحميل البيانات الأولية وتعيين العلم عند الانتهاء
-requestRef.once('value', () => {
-    initialRequestsLoaded = true;
-});
-requestRef.on('child_added', (snapshot) => {
-    if (!initialRequestsLoaded) return;
-    
-    const requestData = snapshot.val();
-    const requestId = snapshot.key;
-    
-    // تعيين الطلب الحالي
-    currentRequestId = requestId;
-    console.log("✅ تم تعيين currentRequestId للطلب الجديد:", currentRequestId);
-
-    // شرط التحقق من وجود طلب نشط مسبقاً
-    if (activeRequestExists) {
-        console.log("⚠️ العامل لديه طلب نشط بالفعل. تم تجاهل الطلب الجديد.");
-        return;
+// 1) تحميل كل الطلبات مرة واحدة وضبط أول currentRequestId
+requestRef.once('value').then((snap) => {
+    const data = snap.val();
+    if (data) {
+        const firstKey = Object.keys(data)[0];
+        currentRequestId = firstKey;
+        console.log("✅ currentRequestId تم ضبطه على:", currentRequestId);
     }
 
-    // التأكد من توفر موقع العامل وحساب المسافة
-    if (!window.currentWorkerLocation) {
-        console.error("🚨 210 موقع العامل الحالي غير متوفر.");
-        return;
-    }
-    const distance = calculateDistance(window.currentWorkerLocation, requestData.location);
-    console.log(` 211 المسافة بين العامل والطلب ${requestId}: ${distance.toFixed(2)} كم`);
-    if (distance > 15) {
-        console.warn(`⚠️ الطلب ${requestId} بعيد عن نطاق الـ 15 كم، لن يتم عرضه.`);
-        return;
-    }
+    // 2) مستمع للطلبات الجديدة
+    requestRef.on('child_added', (snapshot) => {
+        const requestId = snapshot.key;
+        const requestData = snapshot.val();
 
-    waitUntilMapReady()
-        .then(() => {
-            console.log(`🎉 40 الخريطة جاهزة لمعالجة الطلب ${requestId}.`);
-            if (requestData.status === 'pending') {
-                try {
-                    console.log(`⚙️ 44 بدء معالجة الطلب ${requestId}.`);
-                    startRequestTimeout(requestId, 10); // تفعيل المهلة الزمنية
+        // إذا لم يكن هناك طلب نشط مسبقاً، نحدّث currentRequestId
+        if (!activeRequestExists) {
+            currentRequestId = requestId;
+            console.log("🔄 تم تحديث currentRequestId إلى الطلب الجديد:", currentRequestId);
+        }
 
-                    // بدلاً من استدعاء showJobDetails نعرض إشعاراً فقط
-                    alert("لديك طلب جديد: " + requestData.workType);
-                    // يمكن تخزين الطلب في قائمة الطلبات للعرض لاحقًا عند تفاعل المستخدم
-
-                } catch (error) {
-                    console.error(`🚨 72 خطأ أثناء معالجة الطلب ${requestId}:`, error);
-                }
-            } else {
-                console.warn(`⚠️ 73 الطلب ${requestId} ليس في حالة 'pending'.`);
-            }
-        })
-        .catch((err) => {
-            console.warn(`⚠️ 39: الخريطة ليست جاهزة بعد. سيتم تأجيل التعامل مع الطلب ${requestId}.`, err);
-            saveRequestForLater(requestData, requestId);
+        // التأكد من توفر موقع العامل وحساب المسافة
+        if (!window.currentWorkerLocation) {
+            console.error("🚨 موقع العامل غير متوفر.");
             return;
-        });
+        }
+        const distance = calculateDistance(window.currentWorkerLocation, requestData.location);
+        console.log(`المسافة بين العامل والطلب ${requestId}: ${distance.toFixed(2)} كم`);
+        if (distance > 15) {
+            console.warn(`الطلب ${requestId} بعيد عن نطاق الـ15 كم.`);
+            return;
+        }
+
+        // إذا كانت الخريطة جاهزة والطلب في حالة 'pending'
+        waitUntilMapReady()
+            .then(() => {
+                if (requestData.status === 'pending') {
+                    console.log(`⚙️ معالجة الطلب ${requestId} (pending)`);
+                    startRequestTimeout(requestId, 10);
+                    alert("لديك طلب جديد: " + requestData.workType);
+                }
+            })
+            .catch((err) => {
+                console.warn(`الخريطة ليست جاهزة بعد للطلب ${requestId}. حفظ للتعامل لاحقاً.`, err);
+                saveRequestForLater(requestData, requestId);
+            });
+    });
 });
 
 
@@ -3207,6 +3208,75 @@ if (currentWorkerLocation && jobLocation) {
 
 
 
+document.getElementById('viewNegotiationReplies').addEventListener('click', function() {
+    // تأكد من قيمة currentRequestId
+    console.log('🔍 فتح ردود التفاوض للطلب:', currentRequestId);
+
+    document.getElementById('negotiationRepliesPanel').style.display = 'block';
+    
+    // جلب بيانات الطلب أولاً للحصول على وصف الطلب
+    firebase.database().ref(`workRequests/${currentRequestId}`).once('value')
+    .then(function(orderSnapshot) {
+        var orderData = orderSnapshot.val();
+        var orderDescription = (orderData && orderData.description) ? orderData.description : "غير متوفر";
+        
+        // بعد جلب بيانات الطلب نقوم بجلب ردود التفاوض
+        firebase.database().ref(`negotiations/${currentRequestId}`).on('value', function(snapshot) {
+            console.log('📡 بيانات التفاوض المسترجعة:', snapshot.val());
+
+            var repliesList = document.getElementById('negotiationRepliesList');
+            repliesList.innerHTML = ''; // تفريغ المحتوى السابق
+
+            snapshot.forEach(function(childSnapshot) {
+                var reply = childSnapshot.val();
+
+                // (اختياري) عرض الردود الخاصة بهذا العامل فقط
+                if (reply.workerId && reply.workerId !== currentWorkerId) return;
+
+                var message = '';
+                switch (reply.status) {
+                    case 'pending':
+                        message = "في انتظار الرد";
+                        break;
+                    case 'accepted':
+                        message = "تم قبول العرض";
+                        break;
+                    case 'rejected':
+                        message = "تم رفض العرض";
+                        break;
+                    case 'counter':
+                        message = "تم تقديم سعر آخر";
+                        break;
+                }
+
+                // تفاصيل الرسالة (قد تكون في reply.message أو reply.details)
+                var details = reply.message || reply.details || '';
+
+                // إنشاء العنصر الذي سيعرض الرد مع وصف الطلب
+                var listItem = document.createElement('div');
+                listItem.style.padding = '8px';
+                listItem.style.borderBottom = '1px solid #eee';
+                listItem.style.fontSize = '14px';
+                listItem.innerText = message + (details ? " - " + details : "") + " | وصف الطلب: " + orderDescription;
+                
+                repliesList.appendChild(listItem);
+            });
+        });
+    })
+    .catch(function(error) {
+        console.error("خطأ في جلب بيانات الطلب:", error);
+    });
+});
+
+
+
+// على سبيل المثال عند قبول العرض:
+var newReplyRef = firebase.database().ref('negotiationReplies').push();
+newReplyRef.set({
+    status: 'accepted',  // أو rejected أو new_price
+    details: 'تم قبول العرض من قبل العامل أحمد', // مثال لتفاصيل إضافية
+    timestamp: Date.now()
+});
 
 
 

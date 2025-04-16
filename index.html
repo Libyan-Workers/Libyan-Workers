@@ -453,6 +453,26 @@
   }
 }
 
+#negotiationResponsePopup {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  background: white;
+  padding: 20px;
+  border-radius: 10px;
+  z-index: 1100;
+  width: 90%;
+  max-width: 400px;      /* تحديد عرض أقصى */
+  max-height: 70vh;      /* تحديد ارتفاع أقصى كـ70% من ارتفاع النافذة */
+  overflow-y: auto;      /* تفعيل شريط تمرير عمودي عند امتلاء المحتوى */
+}
+
+#negotiationResponsePopup * {
+  max-width: 100%;
+  word-wrap: break-word;
+}
+
 
     </style>
 </head>
@@ -569,10 +589,11 @@
         <button id="locateButton">تحديد موقعي</button>
     </div>
 
-    <!-- نافذة تتبع العامل تظهر عند قبول الطلب -->
-<div id="trackingPanel" style="position: fixed; bottom: 60px; left: 50%; transform: translateX(-50%); background: white; padding: 10px; border-radius: 5px; z-index: 1000; display: none;">
-    <p id="trackingInfo"></p>
+<!-- نافذة تتبع العامل تظهر عند قبول الطلب -->
+<div id="trackingPanel" style="position: fixed; bottom: 60px; left: 50%; transform: translateX(-50%); background: white; padding: 10px; border-radius: 5px; z-index: 1; display: none;">
+  <p id="trackingInfo"></p>
 </div>
+
 
     <!-- نافذة التحذير -->
     <div id="confirmationPopup" style="display:none; position:fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); background: white; border-radius: 10px; padding: 20px; z-index: 3;">
@@ -1485,7 +1506,6 @@ function pushRequestData(requestData, userLocation) {
 
 
 
-document.getElementById('submitRequest').addEventListener('click', submitRequest);
 
 
 function calculateDistance(loc1, loc2) {
@@ -1534,25 +1554,43 @@ function calculateETAWithPromise(workerLocation, userLocation) {
 
 function startWorkerTracking(workerId, userLocation, workerName) {
     const trackingPanel = document.getElementById('trackingPanel');
+    // تعديل قيمة z-index لجعل النافذة تظهر خلف باقي النوافذ
+    trackingPanel.style.zIndex = "1";
+    // التأكد من ظهور النافذة
+    trackingPanel.style.display = 'block';
+    
     const trackingInfo = document.getElementById('trackingInfo');
-    const workerRef = database.ref(`workers/${workerId}/location`);
-    workerRef.on('value', (snapshot) => {
-        const workerLocation = snapshot.val();
-        if (!workerLocation) {
-            console.error("لا يوجد موقع محدث للعامل:", workerId);
-            return;
-        }
-        const distance = calculateDistance(userLocation, workerLocation);
-        calculateETAWithPromise(workerLocation, userLocation)
-            .then((etaMinutes) => {
-                trackingInfo.innerText = `العامل: ${workerName}\nالمسافة: ${distance.toFixed(2)} كم\nالوقت المقدر للوصول: ${etaMinutes} دقيقة`;
-                showRouteToUser(workerLocation, userLocation);
+
+    // دالة لتحديث معلومات التتبع
+    function updateTracking() {
+        firebase.database().ref(`workers/${workerId}/location`).once('value')
+            .then((snapshot) => {
+                const workerLocation = snapshot.val();
+                if (!workerLocation) {
+                    console.error("لا يوجد موقع محدث للعامل:", workerId);
+                    return;
+                }
+                const distance = calculateDistance(userLocation, workerLocation);
+                calculateETAWithPromise(workerLocation, userLocation)
+                    .then((etaMinutes) => {
+                        trackingInfo.innerText = `العامل: ${workerName}\nالمسافة: ${distance.toFixed(2)} كم\nالوقت المقدر للوصول: ${etaMinutes} دقيقة`;
+                        showRouteToUser(workerLocation, userLocation);
+                    })
+                    .catch((err) => {
+                        console.error("خطأ في حساب ETA أثناء التتبع:", err);
+                    });
             })
-            .catch((err) => {
-                console.error("خطأ في حساب ETA أثناء التتبع:", err);
+            .catch(err => {
+                console.error("خطأ في جلب موقع العامل:", err);
             });
-    });
+    }
+
+    // التحديث الأولي فور بدء التتبع
+    updateTracking();
+    // جدولة التحديث كل 60000 مللي ثانية (1 دقيقة)
+    setInterval(updateTracking, 60000);
 }
+
 
 
 document.addEventListener("DOMContentLoaded", () => {
@@ -2235,23 +2273,23 @@ document.getElementById('btnNegotiationOffers').addEventListener('click', functi
 function loadNegotiationOffers() {
   var dropdown = document.getElementById('negotiationDropdown');
   
-  // التأكد من وجود معرف الطلب
   if (!currentRequestId) {
     console.error("معرف الطلب غير معروف لتحديث عروض التفاوض.");
     return;
   }
   
-  // الحصول على مرجع لعقدة التفاوض الخاصة بالطلب الحالي
+  // احصل على مرجع لعقدة التفاوض الخاصة بالطلب الحالي
   var negotiationRef = firebase.database().ref('negotiations/' + currentRequestId);
+  // إلغاء المستمعين السابقين لتفادي التكرار
+  negotiationRef.off();
   
   negotiationRef.on('value', function(snapshot) {
     dropdown.innerHTML = ""; // تفريغ القائمة قبل إعادة التعبئة
     
-    // فقط في حالة استمرار كون الطلب نشط، نقوم بعرض العروض
+    // نتحقق من حالة الطلب قبل تحميل العروض
     firebase.database().ref('workRequests/' + currentRequestId + '/status').once('value').then(function(statusSnap) {
       var status = statusSnap.val();
       if (status !== "pending" && status !== "accepted") {
-        // إذا تغيرت الحالة، لا نقوم بتحميل العروض
         dropdown.innerHTML = "";
         return;
       }
@@ -2265,11 +2303,10 @@ function loadNegotiationOffers() {
           offerItem.style.borderBottom = "1px solid black";
           offerItem.style.marginBottom = "5px";
           
-          // استرجاع اسم العامل وتنسيقه
+          // استرجاع اسم العامل
           firebase.database().ref('workers/' + offerData.workerId + '/name').once('value')
             .then(function(nameSnap) {
               var workerName = nameSnap.val() || "العامل مجهول";
-              // تنسيق العرض: "عرض العامل:" يليه الاسم، ومن ثم السعر والرسالة
               var offerHTML = `
                 <span style="font-size:14px; font-weight:normal;">عرض العامل: <strong style="font-size:14px;">${workerName}</strong></span><br>
                 السعر: ${offerData.proposedPrice}<br>
@@ -2319,6 +2356,7 @@ function loadNegotiationOffers() {
     });
   });
 }
+
 
 
 
@@ -2380,6 +2418,26 @@ function onWorkerMarkerClick(workerId) {
       console.error(`❌ خطأ أثناء جلب بيانات العامل من workers:`, error);
     });
 }
+
+
+function formatNegotiationMessage(message) {
+  // تقسيم النص اعتماداً على علامات نهاية الجمل (.، !، ؟) متبوعة بمسافة أو أكثر
+  let sentences = message.split(/(?<=[.!؟])\s+/);
+  
+  // إزالة الفراغات الزائدة وتكوين سلسلة جديدة مع وضع كل جملة في سطر منفصل
+  let formatted = sentences
+    .map(sentence => sentence.trim())
+    .filter(sentence => sentence.length > 0)
+    .join("\n");
+
+  return formatted;
+}
+
+// مثال على الاستخدام:
+let longMessage = "هذا هو النص الطويل الذي قد يحتوي على عدة جمل. إذا كانت الجمل طويلة جداً، سيتم تقسيمها بحيث لا يتم قطعها في منتصفها! هل يعمل هذا الحل بشكل جيد؟";
+let formattedMessage = formatNegotiationMessage(longMessage);
+document.getElementById("negotiationDetails").innerText = formattedMessage;
+
 
 
 
@@ -2460,7 +2518,7 @@ function showRouteToUser(workerLocation, userLocation) {
                     },
                     paint: {
                         'line-color': '#3887be',
-                        'line-width': 5
+                        'line-width': 8
                     }
                 });
             }
@@ -2610,7 +2668,24 @@ function isWithinRadius(workerLocation, targetLocation, radius = 500) {
 
 
 // إضافة حدث عند النقر على زر "إرسال الطلب"
-document.getElementById('submitRequest').addEventListener('click', submitRequest);
+document.getElementById('submitRequest').addEventListener('click', function() {
+  // تخزين الزر في متغير
+  var btn = this;
+  
+  // إذا كان الزر معطَّلاً مسبقاً، يتم إلغاء الإجراء
+  if (btn.disabled) return;
+  
+  // تعطيل الزر لتجنب الضغط المتكرر
+  btn.disabled = true;
+  
+  // استدعاء دالة إرسال الطلب
+  submitRequest();
+  
+  // إعادة تفعيل الزر بعد 15 ثانية (15000 مللي ثانية)
+  setTimeout(function() {
+    btn.disabled = false;
+  }, 15000);
+});
 
 
 // وظيفة عرض الإشعار
@@ -3206,7 +3281,7 @@ document.getElementById('styleSelector').addEventListener('change', function () 
                 },
                 paint: {
                     'line-color': '#3887be',
-                    'line-width': 5
+                    'line-width': 8
                 }
             });
             console.log("✔️ تمت إعادة إضافة طبقة المسار للمستخدم بعد تغيير النمط.");

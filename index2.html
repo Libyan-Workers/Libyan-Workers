@@ -878,14 +878,9 @@ function initBeams() {
 
     console.log("📝 قبل تسجيل Service Worker الخاص بـ Beams.");
 
-    // تحديد المسار بناءً على بيئة التشغيل
-    const isLocal = window.location.hostname === 'localhost';
-    const swPath = isLocal
-        ? '/service-worker.js'                  // مسار الـ SW المحلي الصحيح
-        : '/Libyan-Workers/service-worker.js'; // مسار SW على GitHub Pages
-
+    // استخدام مسار نسبي: يأخذ الملف من نفس المجلد الذي يحتوي index2.html
     navigator.serviceWorker
-        .register(swPath)
+        .register('./service-worker.js')
         .then(registration => {
             console.log("✅😘💕 تم تسجيل Service Worker:", registration.scope);
             return beamsClient.start({ serviceWorkerRegistration: registration });
@@ -909,6 +904,7 @@ function initBeams() {
         alert(`إشعار جديد: ${payload.notification.body}`);
     };
 }
+
 
 
 // تأكد من التنفيذ سواء حدث DOMContentLoaded أو لا

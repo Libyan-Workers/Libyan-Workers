@@ -473,6 +473,105 @@
   word-wrap: break-word;
 }
 
+/* تنسيق النافذة المنبثقة */
+.login-modal {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0,0,0,0.5); /* خلفية نصف شفافة */
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 10000;
+}
+
+.login-modal-content {
+  background: #fff;
+  padding: 20px;
+  border-radius: 10px;
+  width: 90%;
+  max-width: 400px;
+  text-align: center;
+  box-shadow: 0 0 10px rgba(0,0,0,0.3);
+}
+
+.login-modal-content h2 {
+  margin-bottom: 15px;
+}
+
+.login-modal-content button {
+  padding: 10px 20px;
+  font-size: 16px;
+  border: none;
+  border-radius: 5px;
+  background-color: #4285F4;
+  color: #fff;
+  cursor: pointer;
+  transition: background 0.3s ease;
+}
+
+.login-modal-content button:hover {
+  background-color: #357AE8;
+}
+
+/* ========= تعديل #inputPopup ليظهر كنافذة منبثقة في الوسط ========= */
+#inputPopup {
+  display: none;               /* نترك display للتعديل بواسطة JS */
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  background: #fff;
+  padding: 20px;
+  border-radius: 10px;
+  z-index: 10000;
+  width: 90%;
+  max-width: 350px;
+  box-shadow: 0 0 15px rgba(0,0,0,0.3);
+  direction: rtl;
+  font-family: Arial, sans-serif;
+}
+#inputPopup h2 {
+  text-align: center;
+  margin-bottom: 15px;
+}
+#inputPopup label,
+#inputPopup input {
+  width: 100%;
+  margin-bottom: 10px;
+}
+#inputPopup button {
+  margin: 5px;
+  padding: 8px 12px;
+  border: none;
+  border-radius: 5px;
+  cursor: pointer;
+}
+
+/* عنوان الإعدادات */
+#settingsPanel h2 {
+  margin: 0 0 20px;
+  font-size: 1.4rem;
+  text-align: center;
+  
+  /* لون مختلف للكلمة */
+  color: #e67e22;           /* اختر اللون الذي تفضله */
+  
+  /* خط أسفل العنوان لفصل المحتوى */
+  border-bottom: 2px solid #ddd;
+  padding-bottom: 10px;
+}
+
+/* إذا استخدمت <span class="settings-title"> */
+.settings-title {
+  color: #e74c3c;           /* لون خاص للكلمة فقط */
+}
+
+.login-modal-content p:nth-child(n+3) {
+  display: none;
+}
 
     </style>
 </head>
@@ -484,12 +583,31 @@
   </button>
 
   <!-- لوحة الإعدادات المنبثقة -->
+<!-- لوحة الإعدادات المنبثقة -->
 <div id="settingsPanel">
-    <h2 style="margin-top: 20px; text-align: center;">الإعدادات</h2>
-    <p style="padding: 0 15px;">المحتويات هنا... (يمكنك تعديلها لاحقاً)</p>
+  <h2 style="margin-top: 20px; text-align: center;">الإعدادات</h2>
+
+  <!-- عرض الاسم ورقم الهاتف ديناميكياً -->
+  <p style="padding: 0 15px;">الاسم: <strong id="userNameDisplay">–</strong></p>
+  <p style="padding: 0 15px;">رقم الهاتف: <strong id="userPhoneDisplay">–</strong></p>
+
+  <!-- نص الدعم الفني مع مسافة معقولة -->
+  <div style="margin-top: 560px; text-align: center;">
+    <p style="margin: 0;">الدعم الفني و الشركة : 0927781546</p>
   </div>
-  
-    <!-- نافذة إعلام بسياسة الكوكيز -->
+
+  <!-- زر تسجيل الخروج مع تخفيض المسافة السفلية -->
+  <div style="position: absolute; bottom: 50px; left: 0; width: 100%; text-align: center;">
+    <button id="logoutBtn" style="margin-top: 10px; padding: 8px 12px; background:#e74c3c; color:#fff; border:none; border-radius:5px;">
+      تسجيل خروج
+    </button>
+  </div>
+
+</div>
+
+
+
+<!-- نافذة إعلام بسياسة الكوكيز -->
     <div id="cookieConsentPopup" class="notification" style="display:none; position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%);">
         <p>يستخدم هذا الموقع الكوكيز لتحسين تجربتك. هل توافق على استخدامها؟</p>
         <button id="acceptCookie">موافق</button>
@@ -603,18 +721,19 @@
         <button id="confirmNo">لا</button>
     </div>
 
-    <!-- نافذة إدخال الاسم ورقم الهاتف -->
-    <div id="inputPopup" style="display:none;">
-        <h2>إضافة معلومات</h2>
-        <label for="nameInput">اسم:</label>
-        <input type="text" id="nameInput" placeholder="أدخل الاسم">
-        
-        <label for="phoneInput">رقم الهاتف:</label>
-        <input type="text" id="phoneInput" placeholder="أدخل رقم الهاتف">
-        
-        <button id="submitInfo">التالي</button>
-        <button id="cancelInput">إلغاء</button>
-    </div>
+<!-- نافذة إدخال الاسم ورقم الهاتف -->
+<div id="inputPopup">
+  <h2>إضافة معلومات</h2>
+  <label for="nameInput">اسم:</label>
+  <input type="text" id="nameInput" placeholder="أدخل الاسم">
+
+  <label for="phoneInput">رقم الهاتف:</label>
+  <input type="text" id="phoneInput" placeholder="أدخل رقم الهاتف">
+
+  <button id="submitInfo">التالي</button>
+  <button id="cancelInput">إلغاء</button>
+</div>
+
     
 <!-- مؤشر التحميل (يظهر أثناء الإرسال) -->
 <div id="loadingIndicator" style="display:none; position: fixed; top:50%; left:50%; transform: translate(-50%, -50%); background: rgba(0,0,0,0.7); color: #fff; padding: 15px 30px; border-radius: 5px; z-index: 10000;">
@@ -787,6 +906,14 @@ document.getElementById('descriptionInput').addEventListener('input', function()
     </div>
   </div>
   
+<!-- نافذة تسجيل الدخول -->
+<div id="loginModal" class="login-modal" style="display: none;">
+  <div class="login-modal-content">
+    <h2>تسجيل الدخول</h2>
+    <p>يرجى تسجيل الدخول باستخدام حساب Gmail الخاص بك لاستكمال الاستخدام.</p>
+    <button id="loginWithGoogleBtn">تسجيل الدخول باستخدام Gmail</button>
+  </div>
+</div>
 
 
 
@@ -796,6 +923,8 @@ document.getElementById('descriptionInput').addEventListener('input', function()
 <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-messaging.js"></script>
 
 <script src="https://js.pusher.com/beams/1.0/push-notifications-cdn.js"></script>
+
+<script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-auth.js"></script>
 
 <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
 
@@ -877,8 +1006,10 @@ document.addEventListener("DOMContentLoaded", () => {
                 requestRef.update({ status: 'canceled_by_user' })
                     .then(() => {
                         alert('تم إلغاء الطلب.');
-                        // إرسال إشعار للعامل باستخدام الدالة المناسبة
-                        sendPusherNotification(workerId, 'تم إلغاء الطلب من قبل المستخدم.');
+                        // إرسال إشعار للعامل باستخدام الدالة المناسبة إذا كانت معرفة، وإلا تجاهل الاستدعاء
+                        if (typeof sendPusherNotification === 'function') {
+                            sendPusherNotification(workerId, 'تم إلغاء الطلب من قبل المستخدم.');
+                        }
                         // إخفاء زر الإلغاء بعد التنفيذ
                         document.getElementById('cancelRequestContainer').style.display = 'none';
                     })
@@ -890,47 +1021,62 @@ document.addEventListener("DOMContentLoaded", () => {
 
 
 
+
 // تعريف الكائنات بعد التهيئة
 const messaging = firebase.messaging();
 const database = firebase.database();
 
 
 
-if ('serviceWorker' in navigator) {
-  navigator.serviceWorker.register('/sw.js')
-    .then((registration) => {
-      console.log('Service Worker مسجل بنجاح:', registration);
-
-      // ربط Firebase Messaging مع Service Worker
-      messaging.useServiceWorker(registration);
-
-      // طلب الإذن بالحصول على التوكن
-      return messaging.requestPermission()
-        .then(() => messaging.getToken({ vapidKey: 'BC5AZjNwVnpdJTIpZuCYncnGggugQjxhwdhEos0IpVLKNt_6m9iSbAXzVlNav0MqvVZfMk431Ka_pLZ_BbLNyPA' }));
-    })
-    .then((token) => {
-      console.log('تم الحصول على التوكن:', token);
-
-      // حفظ التوكن في قاعدة البيانات
-      const userId = "user_123"; // تأكد من تحديث هذا المعرف للمستخدم الفعلي
-      const userRef = database.ref(`users/${userId}/notificationToken`);
-      return userRef.set(token);
-    })
-    .catch((error) => console.error('فشل تسجيل Service Worker:', error));
-} else {
-  console.warn('هذا المتصفح لا يدعم Service Workers.');
+function registerServiceWorkerAndSetToken(user) {
+  if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.register('/sw.js')
+      .then((registration) => {
+        console.log('Service Worker مسجل بنجاح:', registration);
+        messaging.useServiceWorker(registration);
+        return messaging.requestPermission()
+          .then(() => messaging.getToken({ vapidKey: 'BC5AZjNwVnpdJTIpZuCYncnGggugQjxhwdhEos0IpVLKNt_6m9iSbAXzVlNav0MqvVZfMk431Ka_pLZ_BbLNyPA' }));
+      })
+      .then((token) => {
+        console.log('تم الحصول على التوكن:', token);
+        // التأكد من أن المستخدم مسجل دخوله قبل التحديث
+        if (user) {
+          const userRef = database.ref(`users/${user.uid}/notificationToken`);
+          return userRef.set(token);
+        } else {
+          console.warn("لا يوجد مستخدم مسجل الدخول. تم تخطي تحديث التوكن.");
+        }
+      })
+      .catch((error) => console.error('فشل تسجيل Service Worker أو تحديث التوكن:', error));
+  } else {
+    console.warn('هذا المتصفح لا يدعم Service Workers.');
+  }
 }
 
 
-  // الحصول على العناصر
-  const settingsBtn = document.getElementById('settingsBtn');
-  const settingsPanel = document.getElementById('settingsPanel');
 
-  // عند النقر على أيقونة الإعدادات، يتم تبديل حالة ظهور اللوحة
-  settingsBtn.addEventListener('click', function(event) {
-    event.stopPropagation(); // منع انتشار النقر لباقي الصفحة
-    settingsPanel.classList.toggle('open');
-  });
+
+// دالة لجلب بيانات المستخدم من قاعدة البيانات وعرضها
+function loadUserSettings() {
+  if (!currentUserId) return;
+  firebase.database().ref('users/' + currentUserId).once('value')
+    .then(snapshot => {
+      const data = snapshot.val() || {};
+      document.getElementById('userNameDisplay').innerText  = data.name  || 'غير مسجل';
+      document.getElementById('userPhoneDisplay').innerText = data.phone || 'غير مسجل';
+    })
+    .catch(err => console.error("خطأ في جلب بيانات الإعدادات:", err));
+}
+
+// تعديل مستمع زر الترس ليحمّل البيانات عند الفتح
+settingsBtn.addEventListener('click', function(event) {
+  event.stopPropagation();
+  settingsPanel.classList.toggle('open');
+  if (settingsPanel.classList.contains('open')) {
+    loadUserSettings();
+  }
+});
+
 
   // عند النقر خارج لوحة الإعدادات، إغلاقها
   document.addEventListener('click', function(event) {
@@ -971,16 +1117,11 @@ function monitorRequestStatus(requestId) {
             } else {
                 // إذا مرّت ثلاث ساعات (10,800,000 مللي ثانية) دون أن يتم تحديث الطلب إلى "finished"
                 if (now - requestData.acceptedAt >= 10800000 && requestData.status !== 'finished') {
-                    requestRef.update({
-                        status: 'pending',
-                        note: 'تم إعادة تعيين الطلب بسبب تأخر العامل عن المهلة المحددة.'
-                    })
-                    .then(() => {
-                        showCancellationNotice("تنبيه: تجاوز العامل المهلة المحددة (3 ساعات) ولم يكمل الطلب. سيتم إعادة عرض الطلب.");
-                    })
-                    .catch((err) => console.error("خطأ في تحديث حالة الطلب:", err));
-                    return; // الخروج لمنع متابعة تنفيذ الكود الخاص بحالة accepted
-                }
+    // عدم تغيير الحالة إلى pending، فقط عرض إشعار للمستخدم
+    showCancellationNotice("تنبيه: تجاوز العامل المهلة المحددة (3 ساعات). الرجاء تقديم طلب جديد لعدم تأخير العامل.");
+    return;
+}
+
             }
 
             const acceptedWorkerId = requestData.acceptedBy;
@@ -1190,23 +1331,15 @@ function checkWorkerStatus(workerId, requestId, userLocation, disconnectTime) {
 
             // التحقق من شرط الوقت (15 دقيقة) سواء من وقت الانقطاع أو من زمن الثبات
             if (elapsedSinceDisconnect >= 15 * 60 * 1000 || staticDuration >= 15 * 60 * 1000) {
-                const distance = calculateDistance(userLocation, currentLocation);
-                console.log("المسافة من المستخدم:", distance);
-                if (distance * 1000 > 500) {
-                    // تحديث حالة الطلب إلى pending
-                    firebase.database().ref(`workRequests/${requestId}`).update({
-                        status: 'pending',
-                        note: 'تم إعادة تعيين الطلب بسبب توقف العامل عن النشاط أو ثبات الموقع لمدة 15 دقيقة. سيتم انتظار قبول عامل آخر لطلبك.'
-                    })
-                    .then(() => {
-                        // عند تغيير حالة الطلب إلى pending، نقوم بإزالة بيانات التتبع ورسم المسار
-                        removeTrackingData();
-                        showCancellationNotice("تم إلغاء الطلب لأن العامل توقف عن النشاط أو لم يتحرك من موقعه لمدة 15 دقيقة. سيتم انتظار قبول عامل آخر لطلبك.");
-                    })
-                    .catch((err) => console.error("خطأ في تحديث حالة الطلب:", err));
-                    return;
-                }
-            } else {
+    const distance = calculateDistance(userLocation, currentLocation);
+    console.log("المسافة من المستخدم:", distance);
+    if (distance * 1000 > 500) {
+        // عدم تغيير حالة الطلب؛ فقط عرض إشعار للمستخدم بضرورة تقديم طلب جديد
+        showCancellationNotice("تنبيه: توقف العامل عن النشاط أو ثبات الموقع لمدة 15 دقيقة. الرجاء تقديم طلب جديد بسبب تأخر العامل.");
+        return;
+    }
+}
+ else {
                 console.log("✅ العامل عاد أو تغير موقعه، لن يتم إعادة تعيين الطلب.");
             }
         })
@@ -1940,7 +2073,15 @@ function removeRequestMarker(requestId) {
 
 // إضافة المستمعين للأحداث للعناصر الجديدة
 // تعريف المتغير currentUserId في مكان عام قبل استخدامه
-var currentUserId = "user_123"; // يجب أن يكون هذا المعرّف هو معرّف المستخدم الحالي
+firebase.auth().onAuthStateChanged(function(user) {
+  if (user) {
+    var currentUserId = user.uid;
+    console.log("معرف المستخدم الحالي:", currentUserId);
+    // يمكنك استخدام currentUserId في باقي عمليات التطبيق
+  } else {
+    console.log("لا يوجد مستخدم مسجل الدخول");
+  }
+});
 
 document.getElementById('reviewRequestButton').addEventListener('click', function() {
   openReviewPopupForUser(currentUserId);
@@ -3292,6 +3433,109 @@ document.getElementById('styleSelector').addEventListener('change', function () 
 
 // حدث عند النقر على زر "طلب عامل"
 // إضافة الحدث لمرة واحدة فقط عند تحميل الصفحة
+// *************** المتغيرات والدوال كما هي ***************
+let currentUserId = null;
+
+function showInputPopup() {
+  document.getElementById('inputPopup').style.display = 'block';
+}
+
+document.addEventListener('DOMContentLoaded', function() {
+  document.getElementById('submitInfo').addEventListener('click', function() {
+    const userName    = document.getElementById('nameInput').value.trim();
+    const phoneNumber = document.getElementById('phoneInput').value.trim();
+
+    if (!userName || !phoneNumber) {
+      alert("يرجى ملء كافة الحقول.");
+      return;
+    }
+
+    firebase.database().ref('users/' + currentUserId).update({
+      name:  userName,
+      phone: phoneNumber
+    })
+    .then(() => {
+      alert("تم تسجيل بياناتك بنجاح.");
+      document.getElementById('inputPopup').style.display = 'none';
+    })
+    .catch(error => {
+      console.error("خطأ أثناء تسجيل البيانات:", error);
+      alert("حدث خطأ أثناء تسجيل البيانات. يرجى المحاولة لاحقاً.");
+    });
+  });
+
+  document.getElementById('cancelInput').addEventListener('click', function() {
+    document.getElementById('inputPopup').style.display = 'none';
+  });
+});
+
+// *************** كود تسجيل الدخول بعد التعديل ***************
+
+firebase.auth().onAuthStateChanged(function(user) {
+  if (user) {
+    currentUserId = user.uid;
+    console.log("المستخدم مسجل دخوله بمعرف:", currentUserId);
+    document.getElementById('loginModal').style.display = 'none';
+
+    registerServiceWorkerAndSetToken(user);
+
+    // **التحقق مما إذا أدخل الاسم ورقم الهاتف مسبقًا**
+    firebase.database().ref('users/' + currentUserId).once('value')
+      .then(snapshot => {
+        const data = snapshot.val() || {};
+        // إذا لم تكن البيانات موجودة، عرض نافذة الإدخال
+        if (!data.name || !data.phone) {
+          showInputPopup();
+        }
+      })
+      .catch(err => {
+        console.error("خطأ في جلب بيانات المستخدم:", err);
+        // في حال الخطأ، يمكن عرض النافذة لضمان إدخال البيانات
+        showInputPopup();
+      });
+
+  } else {
+    console.log("المستخدم غير مسجل دخوله");
+    document.getElementById('loginModal').style.display = 'flex';
+  }
+});
+
+window.onload = function() {
+  document.getElementById('loginModal').style.display = 'block';
+};
+
+document.getElementById('loginWithGoogleBtn').addEventListener('click', function() {
+  const loginButton = this;
+  loginButton.disabled = true;
+
+  const provider = new firebase.auth.GoogleAuthProvider();
+  firebase.auth().signInWithPopup(provider)
+    .then(result => {
+      console.log("تم تسجيل الدخول:", result.user);
+      // منطق onAuthStateChanged سيتولى عرض أو إخفاء النافذة
+    })
+    .catch(error => {
+      console.error("خطأ أثناء تسجيل الدخول:", error);
+      alert("حدث خطأ أثناء تسجيل الدخول. يرجى المحاولة مرة أخرى.");
+    })
+    .finally(() => {
+      loginButton.disabled = false;
+    });
+});
+
+document.getElementById('logoutBtn').addEventListener('click', function() {
+  if (confirm('هل أنت متأكد أنك تريد تسجيل الخروج؟')) {
+    firebase.auth().signOut()
+      .then(() => {
+        console.log('تم تسجيل الخروج بنجاح');
+        document.getElementById('loginModal').style.display = 'flex';
+      })
+      .catch(error => {
+        console.error('خطأ أثناء تسجيل الخروج:', error);
+        alert('حدث خطأ أثناء تسجيل الخروج. يرجى المحاولة مرة أخرى.');
+      });
+  }
+});
 
 
 

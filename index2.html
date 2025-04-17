@@ -910,6 +910,19 @@ function initBeams() {
     };
 }
 
+// تسجيل Service Worker مرة واحدة (إذا لم يكن ذلك مطلوبًا أكثر من مرة)
+if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.register('/service-worker.js')
+    .then(registration => {
+        console.log('✅😘💕 128 Service Worker مسجل بنجاح:', registration.scope);
+    })
+    .catch(error => {
+        console.error('🚨 129 فشل تسجيل Service Worker:', error);
+    });
+} else {
+    console.warn('⚠️ 130 المتصفح لا يدعم Service Worker.');
+}
+
 // تأكد من التنفيذ سواء حدث DOMContentLoaded أو لا
 if (document.readyState === 'loading') {
     document.addEventListener("DOMContentLoaded", initBeams);

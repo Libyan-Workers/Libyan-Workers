@@ -1,13 +1,12 @@
 const CACHE_NAME = 'map-resources-v1';
 const urlsToCache = [
-  '/',  // عند طلب "/" سيُعاد ملف index.html من الخادم
+  './',  // المسار النسبي لملف index.html
   'https://api.mapbox.com/mapbox-gl-js/v2.14.1/mapbox-gl.css',
   'https://api.mapbox.com/mapbox-gl-js/v2.14.1/mapbox-gl.js',
   'https://api.mapbox.com/mapbox-gl-js/plugins/mapbox-gl-directions/v4.1.1/mapbox-gl-directions.css',
   'https://api.mapbox.com/mapbox-gl-js/plugins/mapbox-gl-directions/v4.1.1/mapbox-gl-directions.js'
 ];
 
-// عند تثبيت Service Worker نقوم بتخزين الموارد في الكاش
 self.addEventListener('install', event => {
   console.log('تثبيت Service Worker...');
   event.waitUntil(
@@ -27,44 +26,30 @@ self.addEventListener('install', event => {
   );
 });
 
-// منع تخزين طلبات POST والتعامل مع الطلبات من الكاش أولاً
 self.addEventListener('fetch', event => {
-  if (event.request.method === 'POST') {
-    return;  // منع تخزين الطلبات من نوع POST
-  }
+  if (event.request.method === 'POST') return;
 
   event.respondWith(
     caches.match(event.request)
-      .then(response => {
-        if (response) {
-          return response; // إعادة الاستجابة من الكاش إذا كانت موجودة
-        }
+      .then(response => response || fetch(event.request)
+        .then(networkResponse => {
+          if (!networkResponse || networkResponse.status !== 200 || networkResponse.type !== 'basic') {
+            return networkResponse;
+          }
 
-        return fetch(event.request)
-          .then(networkResponse => {
-            if (!networkResponse || networkResponse.status !== 200 || networkResponse.type !== 'basic') {
-              return networkResponse;
-            }
-            
-            // تخزين نسخة من الاستجابة في الكاش
-            return caches.open(CACHE_NAME).then(cache => {
-              cache.put(event.request, networkResponse.clone());
-              return networkResponse;
-            });
+          return caches.open(CACHE_NAME).then(cache => {
+            cache.put(event.request, networkResponse.clone());
+            return networkResponse;
           });
-      })
-      .catch(() => {
-        // رد افتراضي إذا لم يكن هناك اتصال بالإنترنت
-        return new Response('⚠️ لا يمكن تحميل المحتوى، تأكد من اتصالك بالإنترنت.', {
-          status: 503,
-          statusText: 'Service Unavailable',
-          headers: new Headers({ 'Content-Type': 'text/plain' })
-        });
-      })
+        }))
+      .catch(() => new Response('⚠️ لا يمكن تحميل المحتوى، تأكد من اتصالك بالإنترنت.', {
+        status: 503,
+        statusText: 'Service Unavailable',
+        headers: new Headers({ 'Content-Type': 'text/plain' })
+      }))
   );
 });
 
-// تنظيف الكاش عند تحديث Service Worker
 self.addEventListener('activate', event => {
   console.log('تنشيط Service Worker...');
   event.waitUntil(

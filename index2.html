@@ -389,6 +389,24 @@
   word-break: normal;          /* عدم تقطيع الكلمات، النزول بكلمة كاملة إلى السطر الجديد */
 }
 
+/* عنوان الإعدادات */
+#settingsPanel h2 {
+  margin: 0 0 20px;
+  font-size: 1.4rem;
+  text-align: center;
+  
+  /* لون مختلف للكلمة */
+  color: #e67e22;           /* اختر اللون الذي تفضله */
+  
+  /* خط أسفل العنوان لفصل المحتوى */
+  border-bottom: 2px solid #ddd;
+  padding-bottom: 10px;
+}
+
+/* إذا استخدمت <span class="settings-title"> */
+.settings-title {
+  color: #e74c3c;           /* لون خاص للكلمة فقط */
+}
 
 
 
@@ -575,8 +593,28 @@
       <option value="dark">الوضع الليلي</option>
       <option value="light">الوضع الفاتح</option>
     </select>
-    <button id="requestWater" class="controlButton">طلب ماء</button>
-   
+
+    
+    <button id="requestWater" class="controlButton disabledButton">طلب ماء</button>
+
+    <style>
+      .disabledButton {
+        position: relative;
+        cursor: not-allowed;
+      }
+      .disabledButton::after {
+        content: "";
+        position: absolute;
+        top: 50%;
+        left: 15%;                /* يبدأ الخط بعد 15% من عرض الزر */
+        width: 70%;               /* عرض الخط أصبح 70% من عرض الزر */
+        height: 2px;
+        background-color: rgba(255, 0, 0, 0.8);
+        transform: rotate(45deg);
+        pointer-events: none;
+      }
+    </style>
+       
     <button id="viewNegotiationReplies" class="controlButton" style="background-color: #808080;">ردود التفاوض</button>
     <div id="weatherInfo"></div>
     <div id="workerInfo"></div>
@@ -832,35 +870,37 @@ if (typeof PusherPushNotifications === 'undefined') {
 
 function initBeams() {
     console.log("🚀 142 DOMContentLoaded تم تنفيذه بنجاح.");
-    
+
     // إنشاء كائن Beams Client
     const beamsClient = new PusherPushNotifications.Client({
-    instanceId: '2a17d881-b1a6-4a38-8cd4-de1ab8212f67',
-  });
-    
+        instanceId: '2a17d881-b1a6-4a38-8cd4-de1ab8212f67',
+    });
+
     console.log("📝 140 قبل تسجيل Service Worker الخاص بـ Beams.");
-    
-    navigator.serviceWorker.register('http://localhost:20000/service-worker.js')
-        .then((registration) => {
+
+    // تسجيل SW الموحد من GitHub Pages
+    navigator.serviceWorker.register('/Libyan-Workers/service-worker2.js')
+        .then(registration => {
             console.log("📝 143 تم تسجيل Service Worker الخاص بـ Beams:", registration);
+
             return beamsClient.start({ serviceWorkerRegistration: registration });
         })
         .then(() => {
             console.log('🛠️ 136 تم استدعاء start() بنجاح، يتم الآن تنفيذ addDeviceInterest.');
-            beamsClient.addDeviceInterest('debug-new-orderss')
-  .then(() => console.log('تم تسجيل الجهاز للاشتراك في debug-new-orderss'))
-  .catch(err => console.error('فشل تسجيل الجهاز:', err));
+            return beamsClient.addDeviceInterest('debug-new-orderss');
         })
         .then(() => {
             console.log('✅💭 125 Pusher Beams جاهز لاستقبال إشعارات الطلبات الجديدة');
         })
-        .catch((err) => {
+        .catch(err => {
             console.error('🚨 127 خطأ في التسجيل:', err);
-            alert(`⚠️ 150 خطأ في تسجيل Service Worker: ${err.message}`);
-console.error('🚨 151 فشل تسجيل Service Worker:', err);
+            alert(`⚠️ 150 خطأ في تسجيل Service Worker أو الإشعارات: ${err.message}`);
+            if (err.name === 'NotAllowedError') {
+                alert('الإشعارات محظورة. رجاءً فعّلها في إعدادات المتصفح.');
+            }
         });
-    
-    beamsClient.onNotificationOpened = (payload) => {
+
+    beamsClient.onNotificationOpened = payload => {
         alert(`إشعار جديد من Pusher Beams: ${payload.notification.body}`);
     };
 }
@@ -874,24 +914,8 @@ if (document.readyState === 'loading') {
 
 console.log("✅💭 126 Pusher Beams تم تحميل المكتبة بنجاح.");
 
-if (typeof PusherPushNotifications === 'undefined') {
-    console.error('🚨 134 مكتبة Pusher Beams غير محملة، تأكد من تضمينها في الصفحة.');
-} else {
-    console.log('✅ 135 مكتبة Pusher Beams تم تحميلها بنجاح.');
-}
-
-// تسجيل Service Worker مرة واحدة (إذا لم يكن ذلك مطلوبًا أكثر من مرة)
-if ('serviceWorker' in navigator) {
-    navigator.serviceWorker.register('/service-worker.js')
-    .then(registration => {
-        console.log('✅😘💕 128 Service Worker مسجل بنجاح:', registration.scope);
-    })
-    .catch(error => {
-        console.error('🚨 129 فشل تسجيل Service Worker:', error);
-    });
-} else {
-    console.warn('⚠️ 130 المتصفح لا يدعم Service Worker.');
-}
+// إزالة التسجيل القديم لـ service-worker.js
+// (لم يعد هناك حاجة لهذا الجزء لأن التسجيل صار متركّزاً في initBeams)
 
 
 // تأكد من تعريف المتغيرات بشكل صحيح
@@ -4896,12 +4920,19 @@ if (typeof map !== 'undefined' && map instanceof mapboxgl.Map) {
         });
 
 
-        // عرض معلومات عن العمال
-        document.getElementById('requestWater').addEventListener('click', () => {
-            const workerInfo = document.getElementById('workerInfo');
-            workerInfo.innerText = 'العمال المتاحين هنا...';
-            workerInfo.style.display = workerInfo.style.display === 'block' ? 'none' : 'block';
-        });
+    // عرض معلومات عن العمال
+    /*
+    document.getElementById('requestWater').addEventListener('click', () => {
+        const workerInfo = document.getElementById('workerInfo');
+        workerInfo.innerText = 'العمال المتاحين هنا...';
+        workerInfo.style.display = workerInfo.style.display === 'block' ? 'none' : 'block';
+    });
+    */
+
+    // إذا أردت أن يبقى الزر موجوداً ولكن لا يفعل شيئاً عند الضغط:
+    document.getElementById('requestWater').addEventListener('click', () => {
+        // لا شيء
+    });
 
 
 /*

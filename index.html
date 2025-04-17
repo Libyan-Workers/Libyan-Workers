@@ -667,8 +667,26 @@
         </select>
         <button id="requestWorker" class="controlButton">طلب عامل</button>
 
-        <button id="requestWater" class="controlButton">طلب ماء</button>
+        <button id="requestWater" class="controlButton disabledButton">طلب ماء</button>
 
+        <style>
+          .disabledButton {
+            position: relative;
+            cursor: not-allowed;
+          }
+          .disabledButton::after {
+            content: "";
+            position: absolute;
+            top: 50%;
+            left: 15%;                /* يبدأ الخط بعد 15% من عرض الزر */
+            width: 70%;               /* عرض الخط أصبح 70% من عرض الزر */
+            height: 2px;
+            background-color: rgba(255, 0, 0, 0.8);
+            transform: rotate(45deg);
+            pointer-events: none;
+          }
+        </style>
+        
         <!-- NEW CODE: زر مراجعة/تعديل الطلب -->
         <button id="reviewRequestButton" class="controlButton">عرض تفاصيل الطلب وتعديله</button>
 <!-- زر عروض التفاوض المقدمة موجود بالفعل -->
@@ -973,51 +991,64 @@ if (typeof PusherPushNotifications === 'undefined') {
 }
 
 
-// تهيئة Pusher Beams
+// تهيئة Pusher Beams مع تسجيل Service Worker مخصّص
 document.addEventListener("DOMContentLoaded", () => {
-    const beamsClient = new PusherPushNotifications.Client({
-        instanceId: 'c9641070-f290-4aab-9239-18b096e3d8bc'
-    });
+  // تأكد أولاً من دعم ServiceWorkers
+  if (!('serviceWorker' in navigator)) {
+    console.warn('هذا المتصفح لا يدعم Service Workers.');
+    return;
+  }
 
-    beamsClient.start()
-        .then(() => {
-            return beamsClient.addDeviceInterest('debug-new-orders');
-        })
-        .then(() => {
-            console.log('Pusher Beams جاهز لاستقبال إشعارات الطلبات الجديدة');
-            return beamsClient.addDeviceInterest('debug-new-orders');
-        })
-        .then(() => {
-            console.log('تم تسجيل الجهاز للاشتراك في debug-new-orders');
-        })
-        .catch(err => console.error('فشل تسجيل الجهاز:', err));
+  // سجّل الـ SW الموجود بجانب index.html (أي في https://…/Libyan-Workers/service-worker.js)
+  navigator.serviceWorker.register('service-worker.js')
+    .then(registration => {
+      console.log('Service Worker مسجّل بنجاح:', registration);
 
-    beamsClient.onNotificationOpened = (payload) => {
+      // مرّر التسجيل هذا مباشرةً إلى Beams
+      const beamsClient = new PusherPushNotifications.Client({
+        instanceId: 'c9641070-f290-4aab-9239-18b096e3d8bc',
+        serviceWorkerRegistration: registration
+      });
+
+      // بدء Beams وتسجيل الاهتمام
+      beamsClient.start()
+        .then(() => beamsClient.addDeviceInterest('debug-new-orders'))
+        .then(() => {
+          console.log('Pusher Beams جاهز لاستقبال إشعارات الطلبات الجديدة');
+          return beamsClient.addDeviceInterest('debug-new-orders');
+        })
+        .then(() => {
+          console.log('تم تسجيل الجهاز للاشتراك في debug-new-orders');
+        })
+        .catch(err => console.error('فشل تسجيل الجهاز (Beams):', err));
+
+      // عند فتح الإشعار
+      beamsClient.onNotificationOpened = (payload) => {
         alert(`إشعار جديد من Pusher Beams: ${payload.notification.body}`);
-    };
+      };
 
-    // إضافة مستمع لزر إلغاء الطلب بعد التأكد من وجوده في الصفحة
-    const cancelRequestBtn = document.getElementById('cancelRequestButton');
-    if (cancelRequestBtn) {
-        cancelRequestBtn.addEventListener('click', function() {
-            showCancelConfirmation(function() {
-                // تحديث حالة الطلب في Firebase عند إلغاء الطلب من قبل المستخدم
-                const requestRef = firebase.database().ref(`workRequests/${currentRequestId}`);
-                requestRef.update({ status: 'canceled_by_user' })
-                    .then(() => {
-                        alert('تم إلغاء الطلب.');
-                        // إرسال إشعار للعامل باستخدام الدالة المناسبة إذا كانت معرفة، وإلا تجاهل الاستدعاء
-                        if (typeof sendPusherNotification === 'function') {
-                            sendPusherNotification(workerId, 'تم إلغاء الطلب من قبل المستخدم.');
-                        }
-                        // إخفاء زر الإلغاء بعد التنفيذ
-                        document.getElementById('cancelRequestContainer').style.display = 'none';
-                    })
-                    .catch((err) => console.error("خطأ في تحديث حالة الطلب:", err));
-            });
+      // تابع مستمع زر إلغاء الطلب كما كان سابقاً
+      const cancelRequestBtn = document.getElementById('cancelRequestButton');
+      if (cancelRequestBtn) {
+        cancelRequestBtn.addEventListener('click', () => {
+          showCancelConfirmation(() => {
+            const requestRef = firebase.database().ref(`workRequests/${currentRequestId}`);
+            requestRef.update({ status: 'canceled_by_user' })
+              .then(() => {
+                alert('تم إلغاء الطلب.');
+                if (typeof sendPusherNotification === 'function') {
+                  sendPusherNotification(workerId, 'تم إلغاء الطلب من قبل المستخدم.');
+                }
+                document.getElementById('cancelRequestContainer').style.display = 'none';
+              })
+              .catch(err => console.error("خطأ في تحديث حالة الطلب:", err));
+          });
         });
-    }
+      }
+    })
+    .catch(err => console.error('فشل تسجيل Service Worker:', err));
 });
+
 
 
 
@@ -3768,29 +3799,36 @@ function showCancelConfirmation(callback) {
 }
 
 
-        // عرض معلومات عن العمال
-
-        document.getElementById('requestWater').addEventListener('click', () => {
-    const workerInfo = document.getElementById('workerInfo');
-    const workersRef = database.ref('workers');
-    
-    workersRef.once('value', (snapshot) => {
-        workerInfo.innerHTML = ''; // تفريغ المحتوى السابق
-        snapshot.forEach((worker) => {
-            const workerData = worker.val();
-            const workerElement = document.createElement('div');
-            workerElement.innerHTML = `
-                <p>الاسم: ${workerData.name}</p>
-                <p>رقم الهاتف: ${workerData.phone}</p>
-                <hr>
-            `;
-            workerInfo.appendChild(workerElement);
-        });
-    });
+    // عرض معلومات عن العمال (موقوف مؤقتاً)
+    /*
+    document.getElementById('requestWater').addEventListener('click', () => {
+        const workerInfo = document.getElementById('workerInfo');
+        const workersRef = database.ref('workers');
         
-    workerInfo.style.display = workerInfo.style.display === 'block' ? 'none' : 'block';
-});
+        workersRef.once('value', (snapshot) => {
+            workerInfo.innerHTML = ''; // تفريغ المحتوى السابق
+            snapshot.forEach((worker) => {
+                const workerData = worker.val();
+                const workerElement = document.createElement('div');
+                workerElement.innerHTML = `
+                    <p>الاسم: ${workerData.name}</p>
+                    <p>رقم الهاتف: ${workerData.phone}</p>
+                    <hr>
+                `;
+                workerInfo.appendChild(workerElement);
+            });
+        });
+            
+        workerInfo.style.display = workerInfo.style.display === 'block' ? 'none' : 'block';
+    });
+    */
 
+    // مستمع معطّل لا يقوم بأي شيء لتجنّب الخطأ
+    document.getElementById('requestWater').addEventListener('click', () => {
+        // لا شيء
+    });
+
+    
     </script>
 </body>
 </html>

@@ -878,11 +878,18 @@ function initBeams() {
 
     console.log("📝 140 قبل تسجيل Service Worker الخاص بـ Beams.");
 
-    // تسجيل SW الموحد من GitHub Pages
-    navigator.serviceWorker.register('/Libyan-Workers/service-worker2.js')
+    // تحديد المسار بناءً على بيئة التشغيل
+    const isLocal = window.location.hostname === 'localhost';
+    const swPath = isLocal
+        ? '/service-worker2.js'                  // عند التطوير محلياً
+        : '/Libyan-Workers/service-worker2.js'; // عند النشر على GitHub Pages
+
+    // تسجيل Service Worker مع المسار الصحيح
+    navigator.serviceWorker.register(swPath)
         .then(registration => {
             console.log("📝 143 تم تسجيل Service Worker الخاص بـ Beams:", registration);
 
+            // بدء Beams باستخدام التسجيل
             return beamsClient.start({ serviceWorkerRegistration: registration });
         })
         .then(() => {
@@ -893,17 +900,26 @@ function initBeams() {
             console.log('✅💭 125 Pusher Beams جاهز لاستقبال إشعارات الطلبات الجديدة');
         })
         .catch(err => {
-            console.error('🚨 127 خطأ في التسجيل:', err);
+            console.error('🚨 127 خطأ في التسجيل أو بدء الإشعارات:', err);
             alert(`⚠️ 150 خطأ في تسجيل Service Worker أو الإشعارات: ${err.message}`);
             if (err.name === 'NotAllowedError') {
                 alert('الإشعارات محظورة. رجاءً فعّلها في إعدادات المتصفح.');
             }
         });
 
+    // التعامل مع فتح الإشعارات
     beamsClient.onNotificationOpened = payload => {
         alert(`إشعار جديد من Pusher Beams: ${payload.notification.body}`);
     };
 }
+
+// التأكد من التنفيذ سواء DOMContentLoaded أو لا
+if (document.readyState === 'loading') {
+    document.addEventListener("DOMContentLoaded", initBeams);
+} else {
+    initBeams();
+}
+
 
 // تأكد من تنفيذ الكود سواء حدث DOMContentLoaded أم لا
 if (document.readyState === 'loading') {

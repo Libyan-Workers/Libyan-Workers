@@ -887,7 +887,7 @@ function initBeams() {
     navigator.serviceWorker
         .register(swPath)
         .then(registration => {
-            console.log("✅ تم تسجيل Service Worker:", registration.scope);
+            console.log("✅😘💕 تم تسجيل Service Worker:", registration.scope);
             return beamsClient.start({ serviceWorkerRegistration: registration });
         })
         .then(() => {
@@ -895,7 +895,7 @@ function initBeams() {
             return beamsClient.addDeviceInterest('debug-new-orderss');
         })
         .then(() => {
-            console.log('✅ Pusher Beams جاهز لاستقبال إشعارات الطلبات الجديدة');
+            console.log('💕💕💕💕 Pusher Beams جاهز لاستقبال إشعارات الطلبات الجديدة');
         })
         .catch(err => {
             console.error('🚨 خطأ في تسجيل SW أو بدء الإشعارات:', err);
@@ -910,18 +910,6 @@ function initBeams() {
     };
 }
 
-// تسجيل Service Worker مرة واحدة (إذا لم يكن ذلك مطلوبًا أكثر من مرة)
-if ('serviceWorker' in navigator) {
-    navigator.serviceWorker.register('/service-worker.js')
-    .then(registration => {
-        console.log('✅😘💕 128 Service Worker مسجل بنجاح:', registration.scope);
-    })
-    .catch(error => {
-        console.error('🚨 129 فشل تسجيل Service Worker:', error);
-    });
-} else {
-    console.warn('⚠️ 130 المتصفح لا يدعم Service Worker.');
-}
 
 // تأكد من التنفيذ سواء حدث DOMContentLoaded أو لا
 if (document.readyState === 'loading') {

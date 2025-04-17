@@ -878,15 +878,17 @@ function initBeams() {
 
     console.log("📝 قبل تسجيل Service Worker الخاص بـ Beams.");
 
-    // استخدام مسار نسبي: يأخذ الملف من نفس المجلد الذي يحتوي index2.html
+    // 👉 مسار نسبي: يأخذ service-worker.js من نفس المجلد الذي يحتوي index2.html
     navigator.serviceWorker
         .register('./service-worker.js')
         .then(registration => {
             console.log("✅😘💕 تم تسجيل Service Worker:", registration.scope);
+            // بدء تشغيل الـ SDK مع تسجيل الـ SW الذي حصلنا عليه
             return beamsClient.start({ serviceWorkerRegistration: registration });
         })
         .then(() => {
-            console.log('🛠️ start() استدعي بنجاح، جارٍ addDeviceInterest...');
+            console.log('🛠️ start() استُدعي بنجاح، جارٍ addDeviceInterest...');
+            // الاشتراك في الاهتمام بالموضوعات التي تهمنا
             return beamsClient.addDeviceInterest('debug-new-orderss');
         })
         .then(() => {
@@ -900,10 +902,12 @@ function initBeams() {
             }
         });
 
+    // عندما يفتح المستخدم الإشعار، نظهره بمربع حوار
     beamsClient.onNotificationOpened = payload => {
         alert(`إشعار جديد: ${payload.notification.body}`);
     };
 }
+
 
 
 

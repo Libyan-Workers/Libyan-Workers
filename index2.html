@@ -869,45 +869,49 @@ if (typeof PusherPushNotifications === 'undefined') {
 }
 
 function initBeams() {
-  console.log("🚀 DOMContentLoaded تم تنفيذه بنجاح.");
+    console.log("🚀 DOMContentLoaded تم تنفيذه بنجاح.");
 
-  // تحديد البيئة: محلي أم GitHub Pages
-  const isLocal = location.hostname === 'localhost' || location.hostname === '127.0.0.1';
-  const swUrl   = isLocal
-    ? './service-worker.js'                   // عند التطوير محلياً
-    : '/Libyan-Workers/service-worker.js';    // عند النشر على GH Pages
+    // 1️⃣ تسجيل Service Worker من نفس المجلد
+    navigator.serviceWorker
+        .register('./service-worker.js')
+        .then(() => {
+            console.log("✅😘💕 تم تسجيل Service Worker");
 
-  // إنشاء عميل Pusher Beams مع تمرير مسار ملف الـ SW الصحيح
-  const beamsClient = new PusherPushNotifications.Client({
-    instanceId: '2a17d881-b1a6-4a38-8cd4-de1ab8212f67',
-    serviceWorkerUrl: swUrl,
-  });
+            // 2️⃣ الانتظار حتى يكون جاهزاً
+            return navigator.serviceWorker.ready;
+        })
+        .then(serviceWorkerRegistration => {
+            console.log("ℹ️ Service Worker جاهز للاستخدام.");
 
-  // بدء الـ SDK والاشتراك في interest
-  beamsClient.start()
-    .then(() => {
-      console.log('🛠️ start() استُدعي بنجاح، جارٍ addDeviceInterest...');
-      return beamsClient.addDeviceInterest('debug-new-orderss');
-    })
-    .then(() => {
-      console.log('💕💕💕💕 Pusher Beams جاهز لاستقبال إشعارات الطلبات الجديدة');
-    })
-    .catch(err => {
-      console.error('🚨 خطأ خلال تشغيل الـ SDK أو الاشتراك:', err);
-      alert(`⚠️ خطأ: ${err.message}`);
-      if (err.name === 'NotAllowedError') {
-        alert('الإشعارات محظورة، فعّلها في إعدادات المتصفح.');
-      }
-    });
+            // 3️⃣ إنشاء Beams Client مع تمرير SW الجاهز
+            const beamsClient = new PusherPushNotifications.Client({
+                instanceId: '2a17d881-b1a6-4a38-8cd4-de1ab8212f67',
+                serviceWorkerRegistration: serviceWorkerRegistration,
+            });
+
+            // 4️⃣ بدء Pusher Beams
+            return beamsClient
+                .start()
+                .then(() => {
+                    console.log('🛠️ start() استُدعي بنجاح، جارٍ addDeviceInterest...');
+                    return beamsClient.addDeviceInterest('debug-new-orderss');
+                })
+                .then(() => {
+                    console.log('💕💕💕💕 Pusher Beams جاهز لاستقبال إشعارات الطلبات الجديدة');
+                })
+                .catch(err => {
+                    console.error('🚨 خطأ خلال تشغيل الـ SDK أو الاشتراك:', err);
+                    alert(`⚠️ خطأ: ${err.message}`);
+                });
+        })
+        .catch(err => {
+            console.error('🚨 خطأ في تسجيل SW أو بدء الإشعارات:', err);
+            alert(`⚠️ خطأ: ${err.message}`);
+            if (err.name === 'NotAllowedError') {
+                alert('الإشعارات محظورة، فعّلها في إعدادات المتصفح.');
+            }
+        });
 }
-
-// تأكد من استدعاء initBeams بعد تحميل الـ DOM
-if (document.readyState === 'loading') {
-  document.addEventListener("DOMContentLoaded", initBeams);
-} else {
-  initBeams();
-}
-
 
 
 

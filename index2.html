@@ -882,7 +882,7 @@ function initBeams() {
     const isLocal = window.location.hostname === 'localhost';
     const swPath = isLocal
         ? '/service-worker.js'                  // مسار الـ SW المحلي الصحيح
-        : '/Libyan-Workers/service-worker2.js'; // مسار SW على GitHub Pages
+        : '/Libyan-Workers/service-worker.js'; // مسار SW على GitHub Pages
 
     navigator.serviceWorker
         .register(swPath)

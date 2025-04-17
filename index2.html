@@ -869,51 +869,48 @@ if (typeof PusherPushNotifications === 'undefined') {
 }
 
 function initBeams() {
-    console.log("🚀 142 DOMContentLoaded تم تنفيذه بنجاح.");
+    console.log("🚀 DOMContentLoaded تم تنفيذه بنجاح.");
 
     // إنشاء كائن Beams Client
     const beamsClient = new PusherPushNotifications.Client({
         instanceId: '2a17d881-b1a6-4a38-8cd4-de1ab8212f67',
     });
 
-    console.log("📝 140 قبل تسجيل Service Worker الخاص بـ Beams.");
+    console.log("📝 قبل تسجيل Service Worker الخاص بـ Beams.");
 
     // تحديد المسار بناءً على بيئة التشغيل
     const isLocal = window.location.hostname === 'localhost';
     const swPath = isLocal
-        ? '/service-worker2.js'                  // عند التطوير محلياً
-        : '/Libyan-Workers/service-worker2.js'; // عند النشر على GitHub Pages
+        ? '/service-worker.js'                  // مسار الـ SW المحلي الصحيح
+        : '/Libyan-Workers/service-worker2.js'; // مسار SW على GitHub Pages
 
-    // تسجيل Service Worker مع المسار الصحيح
-    navigator.serviceWorker.register(swPath)
+    navigator.serviceWorker
+        .register(swPath)
         .then(registration => {
-            console.log("📝 143 تم تسجيل Service Worker الخاص بـ Beams:", registration);
-
-            // بدء Beams باستخدام التسجيل
+            console.log("✅ تم تسجيل Service Worker:", registration.scope);
             return beamsClient.start({ serviceWorkerRegistration: registration });
         })
         .then(() => {
-            console.log('🛠️ 136 تم استدعاء start() بنجاح، يتم الآن تنفيذ addDeviceInterest.');
+            console.log('🛠️ start() استدعي بنجاح، جارٍ addDeviceInterest...');
             return beamsClient.addDeviceInterest('debug-new-orderss');
         })
         .then(() => {
-            console.log('✅💭 125 Pusher Beams جاهز لاستقبال إشعارات الطلبات الجديدة');
+            console.log('✅ Pusher Beams جاهز لاستقبال إشعارات الطلبات الجديدة');
         })
         .catch(err => {
-            console.error('🚨 127 خطأ في التسجيل أو بدء الإشعارات:', err);
-            alert(`⚠️ 150 خطأ في تسجيل Service Worker أو الإشعارات: ${err.message}`);
+            console.error('🚨 خطأ في تسجيل SW أو بدء الإشعارات:', err);
+            alert(`⚠️ خطأ: ${err.message}`);
             if (err.name === 'NotAllowedError') {
-                alert('الإشعارات محظورة. رجاءً فعّلها في إعدادات المتصفح.');
+                alert('الإشعارات محظورة، فعّلها في إعدادات المتصفح.');
             }
         });
 
-    // التعامل مع فتح الإشعارات
     beamsClient.onNotificationOpened = payload => {
-        alert(`إشعار جديد من Pusher Beams: ${payload.notification.body}`);
+        alert(`إشعار جديد: ${payload.notification.body}`);
     };
 }
 
-// التأكد من التنفيذ سواء DOMContentLoaded أو لا
+// تأكد من التنفيذ سواء حدث DOMContentLoaded أو لا
 if (document.readyState === 'loading') {
     document.addEventListener("DOMContentLoaded", initBeams);
 } else {

@@ -871,46 +871,45 @@ if (typeof PusherPushNotifications === 'undefined') {
 function initBeams() {
     console.log("🚀 DOMContentLoaded تم تنفيذه بنجاح.");
 
-    // 🔍 تحديد المسار بناءً على البيئة الحالية
+    // ✅ تحديد البيئة: هل نحن في GitHub Pages؟
     const isGitHubPages = location.hostname.includes("github.io");
+
+    // ✅ ضبط المسار الصحيح للـ Service Worker
     const swPath = isGitHubPages
-        ? '/Libyan-Workers/service-worker.js'
-        : './service-worker.js';
+        ? '/Libyan-Workers/service-worker.js'  // مسار مناسب لـ GitHub Pages
+        : './service-worker.js';               // مسار مناسب لـ localhost
 
     const swScope = isGitHubPages
         ? '/Libyan-Workers/'
         : './';
 
-    // 🧹 إزالة أي تسجيلات قديمة للـ Service Worker
-    navigator.serviceWorker.getRegistrations()
-        .then(registrations => {
-            registrations.forEach(reg => reg.unregister());
-            console.log("🧹 تم إلغاء تسجيلات SW القديمة (إن وجدت).");
-
-            // 1️⃣ تسجيل SW بالمسار الصحيح
-            return navigator.serviceWorker.register(swPath, { scope: swScope });
-        })
-        .then(registration => {
-            console.log("✅😘💕 تم تسجيل Service Worker:", registration.scope);
-
-            // 2️⃣ انتظار جاهزية Service Worker
+    // ✅ تسجيل Service Worker
+    navigator.serviceWorker
+        .register(swPath, { scope: swScope })
+        .then(() => {
+            console.log("✅😘💕 تم تسجيل Service Worker:", swPath);
             return navigator.serviceWorker.ready;
         })
         .then(serviceWorkerRegistration => {
             console.log("ℹ️ Service Worker جاهز للاستخدام.");
 
-            // 3️⃣ تهيئة Beams مع تحديد المسار في GitHub فقط
+            // ✅ إنشاء Beams Client مع التحقق من البيئة
             const beamsClient = new PusherPushNotifications.Client({
                 instanceId: '2a17d881-b1a6-4a38-8cd4-de1ab8212f67',
                 serviceWorkerRegistration: serviceWorkerRegistration,
-                ...(isGitHubPages && { serviceWorkerUrl: swPath }) // فقط في GitHub Pages
+                ...(isGitHubPages && { serviceWorkerUrl: swPath }) // فقط لـ GitHub Pages
             });
 
-            // 4️⃣ بدء Beams والاشتراك
+            // ✅ بدء Beams ثم إضافة الاهتمام
             return beamsClient
                 .start()
-                .then(() => beamsClient.addDeviceInterest('debug-new-orderss'))
-                .then(() => console.log('💕💕💕💕 Pusher Beams جاهز لاستقبال إشعارات الطلبات الجديدة'))
+                .then(() => {
+                    console.log('🛠️ start() استُدعي بنجاح، جارٍ addDeviceInterest...');
+                    return beamsClient.addDeviceInterest('debug-new-orderss');
+                })
+                .then(() => {
+                    console.log('💕💕💕💕 Pusher Beams جاهز لاستقبال إشعارات الطلبات الجديدة');
+                })
                 .catch(err => {
                     console.error('🚨 خطأ خلال تشغيل الـ SDK أو الاشتراك:', err);
                     alert(`⚠️ خطأ: ${err.message}`);
@@ -920,7 +919,7 @@ function initBeams() {
             console.error('🚨 خطأ في تسجيل SW أو بدء الإشعارات:', err);
             alert(`⚠️ خطأ: ${err.message}`);
             if (err.name === 'NotAllowedError') {
-                alert('⚠️ الإشعارات محظورة، فعّلها في إعدادات المتصفح.');
+                alert('الإشعارات محظورة، فعّلها في إعدادات المتصفح.');
             }
         });
 }

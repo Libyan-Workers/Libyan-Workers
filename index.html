@@ -7,10 +7,6 @@
     <link href="https://api.mapbox.com/mapbox-gl-js/v2.15.0/mapbox-gl.css" rel="stylesheet" />
     <link rel="stylesheet" href="https://api.mapbox.com/mapbox-gl-js/plugins/mapbox-gl-directions/v4.1.1/mapbox-gl-directions.css" type="text/css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
-    <link rel="stylesheet" href="https://www.gstatic.com/firebasejs/ui/6.0.0/firebase-ui-auth.css" />
-    <script src="https://www.gstatic.com/firebasejs/ui/6.0.0/firebase-ui-auth.js"></script>
-    
-
     <style>
         body {
             font-family: Arial, sans-serif;
@@ -934,11 +930,8 @@ document.getElementById('descriptionInput').addEventListener('input', function()
     <h2>تسجيل الدخول</h2>
     <p>يرجى تسجيل الدخول باستخدام حساب Gmail الخاص بك لاستكمال الاستخدام.</p>
     <button id="loginWithGoogleBtn">تسجيل الدخول باستخدام Gmail</button>
-    <div id="firebaseui-auth-container" style="display: none; margin-top:20px;"></div>
   </div>
 </div>
-
-
 
 
 
@@ -3508,87 +3501,70 @@ document.addEventListener('DOMContentLoaded', function() {
 });
 
 // *************** كود تسجيل الدخول بعد التعديل ***************
-// ----- 1. Helpers لإظهار/إخفاء المودال وإعادة تهيئة UI -----
-const loginModal      = document.getElementById('loginModal');
-const uiContainer     = document.getElementById('firebaseui-auth-container');
 
-function openLoginModal() {
-  loginModal.style.display = 'flex';
-}
+firebase.auth().onAuthStateChanged(function(user) {
+  if (user) {
+    currentUserId = user.uid;
+    console.log("المستخدم مسجل دخوله بمعرف:", currentUserId);
+    document.getElementById('loginModal').style.display = 'none';
 
-function closeLoginModal() {
-  loginModal.style.display = 'none';
-  ui.reset();             // إعادة تهيئة FirebaseUI
-}
+    registerServiceWorkerAndSetToken(user);
 
-// ----- 2. تهيئة FirebaseUI -----
-const ui = firebaseui.auth.AuthUI.getInstance() 
-         || new firebaseui.auth.AuthUI(firebase.auth());
+    // **التحقق مما إذا أدخل الاسم ورقم الهاتف مسبقًا**
+    firebase.database().ref('users/' + currentUserId).once('value')
+      .then(snapshot => {
+        const data = snapshot.val() || {};
+        // إذا لم تكن البيانات موجودة، عرض نافذة الإدخال
+        if (!data.name || !data.phone) {
+          showInputPopup();
+        }
+      })
+      .catch(err => {
+        console.error("خطأ في جلب بيانات المستخدم:", err);
+        // في حال الخطأ، يمكن عرض النافذة لضمان إدخال البيانات
+        showInputPopup();
+      });
 
-const uiConfig = {
-  signInFlow: 'popup',    // popup داخل الصفحة
-  signInOptions: [
-    firebase.auth.GoogleAuthProvider.PROVIDER_ID
-  ],
-  callbacks: {
-    signInSuccessWithAuthResult: function(authResult) {
-      console.log("تم تسجيل الدخول:", authResult.user);
-      closeLoginModal();
-      return false;        // يمنع أي Redirect إضافي
-    },
-    uiShown: function() {
-      document.getElementById('loginWithGoogleBtn').style.display = 'none';
-    }
+  } else {
+    console.log("المستخدم غير مسجل دخوله");
+    document.getElementById('loginModal').style.display = 'flex';
   }
-};
-
-// ----- 3. معالجة نتيجة Redirect أولاً -----
-firebase.auth().getRedirectResult()
-  .then(result => {
-    if (result.user) {
-      console.log("عودة من Redirect:", result.user);
-      closeLoginModal();
-    }
-  })
-  .catch(err => {
-    console.error("خطأ في Redirect:", err);
-  })
-  .finally(() => {
-    // ----- 4. بعد هذا، نركّب مستمع حالة المصادقة -----
-    firebase.auth().onAuthStateChanged(user => {
-      if (user) {
-        console.log("onAuthStateChanged: المستخدم مسجل");
-        closeLoginModal();
-        registerServiceWorkerAndSetToken(user);
-        // تحقق الاسم/الهاتف هنا…
-      } else {
-        console.log("onAuthStateChanged: لم يسجل الدخول");
-        openLoginModal();
-      }
-    });
-  });
-
-// ----- 5. عند الضغط على الزر: بدء UI -----
-document.getElementById('loginWithGoogleBtn').addEventListener('click', () => {
-  uiContainer.style.display = 'block';
-  ui.start('#firebaseui-auth-container', uiConfig);
 });
 
-// ----- 6. زر تسجيل الخروج (كما في كودك الأصلي) -----
+
+
+document.getElementById('loginWithGoogleBtn').addEventListener('click', function() {
+  const loginButton = this;
+  loginButton.disabled = true;
+
+  const provider = new firebase.auth.GoogleAuthProvider();
+  firebase.auth().signInWithPopup(provider)
+    .then(result => {
+      console.log("تم تسجيل الدخول:", result.user);
+      // منطق onAuthStateChanged سيتولى عرض أو إخفاء النافذة
+    })
+    .catch(error => {
+      console.error("خطأ أثناء تسجيل الدخول:", error);
+      alert("حدث خطأ أثناء تسجيل الدخول. يرجى المحاولة مرة أخرى.");
+    })
+    .finally(() => {
+      loginButton.disabled = false;
+    });
+});
+
 document.getElementById('logoutBtn').addEventListener('click', function() {
   if (confirm('هل أنت متأكد أنك تريد تسجيل الخروج؟')) {
     firebase.auth().signOut()
       .then(() => {
-        console.log("تم تسجيل الخروج");
-        openLoginModal();
+        console.log('تم تسجيل الخروج بنجاح');
+        document.getElementById('loginModal').style.display = 'flex';
       })
       .catch(error => {
-        console.error("خطأ أثناء تسجيل الخروج:", error);
-        alert("حدث خطأ أثناء تسجيل الخروج. حاول مجددًا.");
+        console.error('خطأ أثناء تسجيل الخروج:', error);
+        alert('حدث خطأ أثناء تسجيل الخروج. يرجى المحاولة مرة أخرى.');
       });
   }
 });
-
 
 
 

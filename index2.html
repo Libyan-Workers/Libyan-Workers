@@ -871,34 +871,46 @@ if (typeof PusherPushNotifications === 'undefined') {
 function initBeams() {
     console.log("🚀 DOMContentLoaded تم تنفيذه بنجاح.");
 
-    // 1️⃣ تسجيل Service Worker من نفس المجلد
-    navigator.serviceWorker
-        .register('./service-worker.js')
-        .then(() => {
-            console.log("✅😘💕 تم تسجيل Service Worker");
+    // 🔍 تحديد المسار بناءً على البيئة الحالية
+    const isGitHubPages = location.hostname.includes("github.io");
+    const swPath = isGitHubPages
+        ? '/Libyan-Workers/service-worker.js'
+        : './service-worker.js';
 
-            // 2️⃣ الانتظار حتى يكون جاهزاً
+    const swScope = isGitHubPages
+        ? '/Libyan-Workers/'
+        : './';
+
+    // 🧹 إزالة أي تسجيلات قديمة للـ Service Worker
+    navigator.serviceWorker.getRegistrations()
+        .then(registrations => {
+            registrations.forEach(reg => reg.unregister());
+            console.log("🧹 تم إلغاء تسجيلات SW القديمة (إن وجدت).");
+
+            // 1️⃣ تسجيل SW بالمسار الصحيح
+            return navigator.serviceWorker.register(swPath, { scope: swScope });
+        })
+        .then(registration => {
+            console.log("✅😘💕 تم تسجيل Service Worker:", registration.scope);
+
+            // 2️⃣ انتظار جاهزية Service Worker
             return navigator.serviceWorker.ready;
         })
         .then(serviceWorkerRegistration => {
             console.log("ℹ️ Service Worker جاهز للاستخدام.");
 
-            // 3️⃣ إنشاء Beams Client مع تمرير SW الجاهز
+            // 3️⃣ تهيئة Beams مع تحديد المسار في GitHub فقط
             const beamsClient = new PusherPushNotifications.Client({
                 instanceId: '2a17d881-b1a6-4a38-8cd4-de1ab8212f67',
                 serviceWorkerRegistration: serviceWorkerRegistration,
+                ...(isGitHubPages && { serviceWorkerUrl: swPath }) // فقط في GitHub Pages
             });
 
-            // 4️⃣ بدء Pusher Beams
+            // 4️⃣ بدء Beams والاشتراك
             return beamsClient
                 .start()
-                .then(() => {
-                    console.log('🛠️ start() استُدعي بنجاح، جارٍ addDeviceInterest...');
-                    return beamsClient.addDeviceInterest('debug-new-orderss');
-                })
-                .then(() => {
-                    console.log('💕💕💕💕 Pusher Beams جاهز لاستقبال إشعارات الطلبات الجديدة');
-                })
+                .then(() => beamsClient.addDeviceInterest('debug-new-orderss'))
+                .then(() => console.log('💕💕💕💕 Pusher Beams جاهز لاستقبال إشعارات الطلبات الجديدة'))
                 .catch(err => {
                     console.error('🚨 خطأ خلال تشغيل الـ SDK أو الاشتراك:', err);
                     alert(`⚠️ خطأ: ${err.message}`);
@@ -908,10 +920,11 @@ function initBeams() {
             console.error('🚨 خطأ في تسجيل SW أو بدء الإشعارات:', err);
             alert(`⚠️ خطأ: ${err.message}`);
             if (err.name === 'NotAllowedError') {
-                alert('الإشعارات محظورة، فعّلها في إعدادات المتصفح.');
+                alert('⚠️ الإشعارات محظورة، فعّلها في إعدادات المتصفح.');
             }
         });
 }
+
 
 
 

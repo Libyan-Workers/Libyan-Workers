@@ -3533,24 +3533,53 @@ firebase.auth().onAuthStateChanged(function(user) {
 
 
 
+// مستمع زر تسجيل الدخول
 document.getElementById('loginWithGoogleBtn').addEventListener('click', function() {
   const loginButton = this;
   loginButton.disabled = true;
 
   const provider = new firebase.auth.GoogleAuthProvider();
-  firebase.auth().signInWithPopup(provider)
-    .then(result => {
-      console.log("تم تسجيل الدخول:", result.user);
-      // منطق onAuthStateChanged سيتولى عرض أو إخفاء النافذة
-    })
-    .catch(error => {
-      console.error("خطأ أثناء تسجيل الدخول:", error);
-      alert("حدث خطأ أثناء تسجيل الدخول. يرجى المحاولة مرة أخرى.");
-    })
-    .finally(() => {
-      loginButton.disabled = false;
-    });
+  // كشف الجهاز: إذا كان موبايل فلو Redirect، وإلا Popup
+  if (/Android|iPhone|iPad|iPod/i.test(navigator.userAgent)) {
+    firebase.auth().signInWithRedirect(provider);
+  } else {
+    firebase.auth().signInWithPopup(provider)
+      .then(result => {
+        console.log("تم تسجيل الدخول عبر Popup:", result.user);
+        // onAuthStateChanged سيخفي الـ modal
+      })
+      .catch(error => {
+        console.error("خطأ أثناء تسجيل الدخول عبر Popup:", error);
+        alert("حدث خطأ أثناء تسجيل الدخول. يرجى المحاولة مرة أخرى.");
+      })
+      .finally(() => {
+        loginButton.disabled = false;
+      });
+  }
 });
+
+// عند العودة من صفحة Google (Redirect flow)
+firebase.auth().getRedirectResult()
+  .then(result => {
+    if (result.user) {
+      console.log("تم تسجيل الدخول عبر Redirect:", result.user);
+      // يمكننا هنا أيضاً إخفاء الـ modal مباشرةً
+      document.getElementById('loginModal').style.display = 'none';
+    }
+  })
+  .catch(error => {
+    console.error("خطأ في getRedirectResult:", error);
+  });
+
+// المستمع العام لحالة المصادقة (يبقى كما هو)
+firebase.auth().onAuthStateChanged(function(user) {
+  if (user) {
+    document.getElementById('loginModal').style.display = 'none';
+  } else {
+    document.getElementById('loginModal').style.display = 'flex';
+  }
+});
+
 
 document.getElementById('logoutBtn').addEventListener('click', function() {
   if (confirm('هل أنت متأكد أنك تريد تسجيل الخروج؟')) {

@@ -7,6 +7,11 @@
     <link href="https://api.mapbox.com/mapbox-gl-js/v2.15.0/mapbox-gl.css" rel="stylesheet" />
     <link rel="stylesheet" href="https://api.mapbox.com/mapbox-gl-js/plugins/mapbox-gl-directions/v4.1.1/mapbox-gl-directions.css" type="text/css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <!-- FirebaseUI CSS -->
+<link type="text/css" rel="stylesheet" href="https://www.gstatic.com/firebasejs/ui/6.0.0/firebase-ui-auth.css" />
+<!-- FirebaseUI JS -->
+<script src="https://www.gstatic.com/firebasejs/ui/6.0.0/firebase-ui-auth.js"></script>
+
     <style>
         body {
             font-family: Arial, sans-serif;
@@ -930,8 +935,14 @@ document.getElementById('descriptionInput').addEventListener('input', function()
     <h2>تسجيل الدخول</h2>
     <p>يرجى تسجيل الدخول باستخدام حساب Gmail الخاص بك لاستكمال الاستخدام.</p>
     <button id="loginWithGoogleBtn">تسجيل الدخول باستخدام Gmail</button>
+    
+    <!-- حاوية واجهة FirebaseUI التي ستظهر عند الضغط على الزر -->
+    <div id="firebaseui-auth-container"
+         style="display: none; margin-top: 20px;">
+    </div>
   </div>
 </div>
+
 
 
 
@@ -3501,23 +3512,35 @@ document.addEventListener('DOMContentLoaded', function() {
 });
 
 // *************** كود تسجيل الدخول بعد التعديل ***************
-// ======== كشف إذا كان المستخدم على جهاز محمول أم لا ========
-const isMobile = /Mobi|Android/i.test(navigator.userAgent);
-
-// ======== تعامل مع نتيجة Redirect (إذا تم استخدام signInWithRedirect) ========
-firebase.auth().getRedirectResult()
-  .then((result) => {
-    if (result.user) {
-      console.log("تم تسجيل الدخول عبر Redirect:", result.user);
-      // onAuthStateChanged سيهتم بإخفاء نافذة الدخول وإتمام باقي المنطق
+// ▼ تهيئة FirebaseUI
+const ui = firebaseui.auth.AuthUI.getInstance() || new firebaseui.auth.AuthUI(firebase.auth());
+const uiConfig = {
+  signInFlow: 'popup',  // واجهة مصغرة داخل الصفحة
+  signInOptions: [
+    firebase.auth.GoogleAuthProvider.PROVIDER_ID
+  ],
+  callbacks: {
+    signInSuccessWithAuthResult: function(authResult) {
+      // بعد تسجيل الدخول بنجاح: أخفِ واجهة FirebaseUI والمودال
+      document.getElementById('firebaseui-auth-container').style.display = 'none';
+      document.getElementById('loginModal').style.display = 'none';
+      return false;  // يمنع Redirect
+    },
+    uiShown: function() {
+      // اختياري: إخفاء زر البداية عندما تظهر الواجهة
+      document.getElementById('loginWithGoogleBtn').style.display = 'none';
     }
-  })
-  .catch((error) => {
-    console.error("خطأ في Redirect result:", error);
-    alert("حدث خطأ أثناء تسجيل الدخول عبر Redirect. حاول مجددًا.");
-  });
+  }
+};
 
-// ======== مراقب حالة المصادقة ========
+// ▼ زر عرض واجهة تسجيل FirebaseUI
+document.getElementById('loginWithGoogleBtn').addEventListener('click', function() {
+  const container = document.getElementById('firebaseui-auth-container');
+  container.style.display = 'block';
+  ui.start('#firebaseui-auth-container', uiConfig);
+});
+
+// ▼ مراقب حالة المصادقة كما كان
 firebase.auth().onAuthStateChanged(function(user) {
   if (user) {
     currentUserId = user.uid;
@@ -3526,7 +3549,6 @@ firebase.auth().onAuthStateChanged(function(user) {
 
     registerServiceWorkerAndSetToken(user);
 
-    // تحقق من إدخال الاسم ورقم الهاتف
     firebase.database().ref('users/' + currentUserId).once('value')
       .then(snapshot => {
         const data = snapshot.val() || {};
@@ -3545,35 +3567,7 @@ firebase.auth().onAuthStateChanged(function(user) {
   }
 });
 
-// ======== زر تسجيل الدخول باستخدام Google ========
-document.getElementById('loginWithGoogleBtn').addEventListener('click', function() {
-  const loginButton = this;
-  loginButton.disabled = true;
-
-  const provider = new firebase.auth.GoogleAuthProvider();
-
-  if (isMobile) {
-    // على الجوال: استخدم Redirect
-    firebase.auth().signInWithRedirect(provider);
-    // لا نفكّر في أخفاء الزر هنا لأن الصفحة سوف تعاد تحميلها
-  } else {
-    // على سطح المكتب: استخدم Popup
-    firebase.auth().signInWithPopup(provider)
-      .then(result => {
-        console.log("تم تسجيل الدخول عبر Popup:", result.user);
-        // onAuthStateChanged سيهتم بإخفاء النافذة
-      })
-      .catch(error => {
-        console.error("خطأ أثناء تسجيل الدخول عبر Popup:", error);
-        alert("حدث خطأ أثناء تسجيل الدخول. يرجى المحاولة مرة أخرى.");
-      })
-      .finally(() => {
-        loginButton.disabled = false;
-      });
-  }
-});
-
-// ======== زر تسجيل الخروج ========
+// ▼ زر تسجيل الخروج كما كان
 document.getElementById('logoutBtn').addEventListener('click', function() {
   if (confirm('هل أنت متأكد أنك تريد تسجيل الخروج؟')) {
     firebase.auth().signOut()

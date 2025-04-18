@@ -2456,84 +2456,80 @@ function loadNegotiationOffers() {
     return;
   }
   
-  // احصل على مرجع لعقدة التفاوض الخاصة بالطلب الحالي
   var negotiationRef = firebase.database().ref('negotiations/' + currentRequestId);
-  // إلغاء المستمعين السابقين لتفادي التكرار
   negotiationRef.off();
   
   negotiationRef.on('value', function(snapshot) {
-    dropdown.innerHTML = ""; // تفريغ القائمة قبل إعادة التعبئة
+    dropdown.innerHTML = ""; // تفريغ القائمة
     
-    // نتحقق من حالة الطلب قبل تحميل العروض
-    firebase.database().ref('workRequests/' + currentRequestId + '/status').once('value').then(function(statusSnap) {
-      var status = statusSnap.val();
-      if (status !== "pending" && status !== "accepted") {
-        dropdown.innerHTML = "";
-        return;
-      }
-      
-      if (snapshot.exists()) {
-        snapshot.forEach(function(childSnapshot) {
-          var offerData = childSnapshot.val();
-          var offerId = childSnapshot.key;
-          var offerItem = document.createElement('div');
-          offerItem.style.padding = "8px";
-          offerItem.style.borderBottom = "1px solid black";
-          offerItem.style.marginBottom = "5px";
-          
-          // استرجاع اسم العامل
-          firebase.database().ref('workers/' + offerData.workerId + '/name').once('value')
-            .then(function(nameSnap) {
-              var workerName = nameSnap.val() || "العامل مجهول";
-              var offerHTML = `
-                <span style="font-size:14px; font-weight:normal;">عرض العامل: <strong style="font-size:14px;">${workerName}</strong></span><br>
-                السعر: ${offerData.proposedPrice}<br>
-                الرسالة: ${offerData.message}<br>
-              `;
-              offerItem.innerHTML = offerHTML;
-              
-              // إنشاء حاوية للأزرار
-              var buttonContainer = document.createElement('div');
-              buttonContainer.style.marginTop = "5px";
-              
-              // زر "قبول"
-              var acceptBtn = document.createElement('button');
-              acceptBtn.textContent = "قبول";
-              acceptBtn.style.marginRight = "5px";
-              acceptBtn.addEventListener('click', function() {
-                acceptNegotiationOffer(offerId, offerData);
+    // التحقق من حالة الطلب
+    firebase.database().ref('workRequests/' + currentRequestId + '/status')
+      .once('value').then(function(statusSnap) {
+        var status = statusSnap.val();
+        
+        if (status !== "pending" && status !== "accepted") {
+          // عرض رسالة عند انتهاء الطلب أو إلغائه
+          dropdown.innerHTML = 
+            "<p style='padding:12px; text-align:center; color:#666;'>لا توجد عروض تفاوض مقدمة.</p>";
+          dropdown.style.display = 'block';
+          console.log("تم عرض رسالة عدم وجود عروض لأن حالة الطلب هي:", status);
+          return;
+        }
+        
+        if (snapshot.exists()) {
+          // إذا وجدت عروض تفاوض، ننشئها كما في الكود السابق
+          snapshot.forEach(function(childSnapshot) {
+            var offerData = childSnapshot.val();
+            var offerId   = childSnapshot.key;
+            var offerItem = document.createElement('div');
+            offerItem.style.padding = "8px";
+            offerItem.style.borderBottom = "1px solid #ccc";
+            offerItem.style.marginBottom = "8px";
+            
+            firebase.database().ref('workers/' + offerData.workerId + '/name').once('value')
+              .then(function(nameSnap) {
+                var workerName = nameSnap.val() || "العامل مجهول";
+                offerItem.innerHTML = `
+                  <strong>عرض ${workerName}</strong><br>
+                  السعر: ${offerData.proposedPrice}<br>
+                  الرسالة: ${offerData.message}
+                `;
+                
+                var btns = [
+                  { text: 'قبول',           fn: () => acceptNegotiationOffer(offerId, offerData) },
+                  { text: 'رفض',            fn: () => rejectNegotiationOffer(offerId, offerData) },
+                  { text: 'اقتراح سعر آخر', fn: () => openCounterOfferForm(offerId, offerData) }
+                ];
+                
+                var buttonContainer = document.createElement('div');
+                buttonContainer.style.marginTop = "5px";
+                
+                btns.forEach(function(b) {
+                  var btn = document.createElement('button');
+                  btn.textContent = b.text;
+                  btn.style.marginRight = "5px";
+                  btn.addEventListener('click', b.fn);
+                  buttonContainer.appendChild(btn);
+                });
+                
+                offerItem.appendChild(buttonContainer);
+                dropdown.appendChild(offerItem);
+              })
+              .catch(function(error) {
+                console.error("خطأ عند استرجاع اسم العامل:", error);
               });
-              buttonContainer.appendChild(acceptBtn);
-              
-              // زر "رفض"
-              var rejectBtn = document.createElement('button');
-              rejectBtn.textContent = "رفض";
-              rejectBtn.style.marginRight = "5px";
-              rejectBtn.addEventListener('click', function() {
-                rejectNegotiationOffer(offerId, offerData);
-              });
-              buttonContainer.appendChild(rejectBtn);
-              
-              // زر "اقتراح سعر آخر"
-              var counterBtn = document.createElement('button');
-              counterBtn.textContent = "اقتراح سعر آخر";
-              counterBtn.addEventListener('click', function() {
-                openCounterOfferForm(offerId, offerData);
-              });
-              buttonContainer.appendChild(counterBtn);
-              
-              offerItem.appendChild(buttonContainer);
-              dropdown.appendChild(offerItem);
-            }).catch(function(error) {
-              console.error("خطأ عند استرجاع اسم العامل:", error);
-            });
-        });
-      } else {
-        dropdown.innerHTML = "<p style='padding:8px;'>لا توجد عروض حالياً.</p>";
-      }
-    });
+          });
+        } else {
+          // إذا لا توجد عروض بالرغم من الحالة المسموح بها
+          dropdown.innerHTML = 
+            "<p style='padding:12px; text-align:center; color:#666;'>لا توجد عروض تفاوض مقدمة.</p>";
+        }
+        
+        dropdown.style.display = 'block';
+      });
   });
 }
+
 
 
 

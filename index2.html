@@ -729,6 +729,30 @@
   </div>
 </div>
 
+<!-- نافذة التأكيد مخصصة لقبول الطلب -->
+<div id="acceptConfirmationModal" style="display:none;
+     position:fixed; top:0; left:0; width:100%; height:100%;
+     background:rgba(0,0,0,0.5); align-items:center; justify-content:center;
+     z-index:2000;">
+
+  <div style="background:#fff; padding:20px; border-radius:10px;
+              max-width:400px; width:90%; text-align:right;">
+    <h3 style="margin-top:0; font-weight:600;">تأكيد قبول الطلب</h3>
+    <p>
+      هل أنت متأكّد من قبول هذا الطلب؟<br>
+      بعد المتابعة، لا يمكنك التراجع وسيُحفَظ نهائيّاً في قاعدة البيانات.
+    </p>
+    <div style="margin-top:20px; text-align:left;">
+      <button id="cancelAccept" class="jobButton close" style="margin-right:10px;">
+        إلغاء
+      </button>
+      <button id="confirmAccept" class="jobButton accept">
+        متابعة
+      </button>
+    </div>
+  </div>
+</div>
+
 
 <!-- مكتبات Firebase App و Messaging -->
 <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
@@ -3307,84 +3331,86 @@ if (currentWorkerLocation && jobLocation) {
 
 document.getElementById('viewNegotiationReplies').addEventListener('click', function() {
     console.log('🔍 فتح ردود التفاوض للطلب:', currentRequestId);
-    document.getElementById('negotiationRepliesPanel').style.display = 'block';
-    
-    // أولاً نقوم بجلب بيانات الطلب للحصول على وصف الطلب والتحقق من حالته
-    firebase.database().ref(`workRequests/${currentRequestId}`).once('value')
-    .then(function(orderSnapshot) {
-        var orderData = orderSnapshot.val();
-        var orderDescription = (orderData && orderData.description) ? orderData.description : "غير متوفر";
-        
-        // إذا تغيرت حالة الطلب إلى finished أو deleted، نخفي بيانات الردود
-        if (orderData && (orderData.status === "finished" || orderData.status === "deleted")) {
-            console.log("⚠️ حالة الطلب أصبحت finished أو deleted. سيتم إخفاء الردود.");
-            document.getElementById('negotiationRepliesPanel').style.display = 'none';
-            return; // لا نقوم بمتابعة جلب الردود
-        }
-        
-        // الآن نقوم بجلب ردود التفاوض
-        firebase.database().ref(`negotiations/${currentRequestId}`).on('value', function(snapshot) {
-            console.log('📡 بيانات التفاوض المسترجعة:', snapshot.val());
-            var repliesList = document.getElementById('negotiationRepliesList');
-            repliesList.innerHTML = ''; // تفريغ المحتوى السابق
 
-            // متغير لتعقب وجود رد بحالة غير pending
-            let hasNonPendingReply = false;
-            
+    var panel       = document.getElementById('negotiationRepliesPanel');
+    var repliesList = document.getElementById('negotiationRepliesList');
+    panel.style.display = 'block';       // عرض اللوحة دائماً
+    repliesList.innerHTML = '';          // تفريغ القائمة قبل التحميل
+
+    // جلب بيانات الطلب أولاً
+    firebase.database().ref(`workRequests/${currentRequestId}`)
+    .once('value')
+    .then(function(orderSnapshot) {
+        var orderData        = orderSnapshot.val();
+        var orderDescription = (orderData && orderData.description) 
+                               ? orderData.description 
+                               : "غير متوفر";
+
+        // إذا كانت حالة الطلب finished أو deleted، عرض رسالة عدم وجود عروض
+        if (!orderData || orderData.status === "finished" || orderData.status === "deleted") {
+            var placeholder = document.createElement('div');
+            placeholder.style.padding    = '12px';
+            placeholder.style.textAlign  = 'center';
+            placeholder.style.color      = '#666';
+            placeholder.innerText        = 'لا توجد عروض تفاوض مقدمة.';
+            repliesList.appendChild(placeholder);
+            return;
+        }
+
+        // جلب ردود التفاوض
+        firebase.database().ref(`negotiations/${currentRequestId}`)
+        .on('value', function(snapshot) {
+            repliesList.innerHTML = '';      // إعادة التفريغ لكل تحديث
+            var hasAnyReply = false;
+
             snapshot.forEach(function(childSnapshot) {
                 var reply = childSnapshot.val();
+                // عرض الردود الخاصة بهذا العامل فقط
                 if (reply.workerId && reply.workerId !== currentWorkerId) return;
-                
+                hasAnyReply = true;
+
+                // تحويل الحالة إلى رسالة
                 var message = '';
                 switch (reply.status) {
-                    case 'pending':
-                        message = "في انتظار الرد";
-                        break;
-                    case 'accepted':
-                        message = "تم قبول العرض";
-                        break;
-                    case 'rejected':
-                        message = "تم رفض العرض";
-                        break;
-                    case 'counter':
-                        message = "تم تقديم سعر آخر";
-                        break;
+                    case 'pending': message = "في انتظار الرد";      break;
+                    case 'accepted': message = "تم قبول العرض";     break;
+                    case 'rejected': message = "تم رفض العرض";      break;
+                    case 'counter': message = "تم تقديم سعر آخر";    break;
                 }
-                
+
                 var details = reply.message || reply.details || '';
-                var listItem = document.createElement('div');
-                listItem.style.padding = '8px';
-                listItem.style.borderBottom = '1px solid #eee';
-                listItem.style.fontSize = '14px';
-                // دمج حالة الرد مع تفاصيله ووصف الطلب
-                listItem.innerText = message + (details ? " - " + details : "") + " | وصف الطلب: " + orderDescription;
-                
-                // إذا كان الرد غير pending، نعلم بذلك
-                if (reply.status !== 'pending') {
-                    hasNonPendingReply = true;
-                }
-                
-                repliesList.appendChild(listItem);
+                var item = document.createElement('div');
+                item.style.padding       = '8px';
+                item.style.borderBottom  = '1px solid #eee';
+                item.style.fontSize      = '14px';
+                item.innerText = message
+                              + (details ? " - " + details : "")
+                              + " | وصف الطلب: " + orderDescription;
+                repliesList.appendChild(item);
             });
-            
-            // إذا لم يكن هناك رد غير pending، نعرض عنصر placeholder "في انتظار الرد"
-            if (!hasNonPendingReply) {
-                var placeholderItem = document.createElement('div');
-                placeholderItem.style.padding = '8px';
-                placeholderItem.style.borderBottom = '1px solid #eee';
-                placeholderItem.style.fontSize = '14px';
-                placeholderItem.innerText = "في انتظار الرد";
-                // إذا لم يكن هناك أي عناصر في القائمة، نضيف العنصر
-                if (repliesList.childElementCount === 0) {
-                    repliesList.appendChild(placeholderItem);
-                }
+
+            // إذا لم توجد أي ردود (بما في ذلك حالات pending)، عرض رسالة عدم وجود عروض
+            if (!hasAnyReply) {
+                var placeholder = document.createElement('div');
+                placeholder.style.padding    = '12px';
+                placeholder.style.textAlign  = 'center';
+                placeholder.style.color      = '#666';
+                placeholder.innerText        = 'لا توجد عروض تفاوض مقدمة.';
+                repliesList.appendChild(placeholder);
             }
         });
     })
     .catch(function(error) {
         console.error("خطأ في جلب بيانات الطلب:", error);
+        var errMsg = document.createElement('div');
+        errMsg.style.padding    = '12px';
+        errMsg.style.textAlign  = 'center';
+        errMsg.style.color      = '#c00';
+        errMsg.innerText        = 'حدث خطأ أثناء جلب حالة الطلب.';
+        repliesList.appendChild(errMsg);
     });
 });
+
 
 
 
@@ -4755,122 +4781,124 @@ map.on('style.load', () => {
 // تعريف المتغيرات العامة
 var currentRequestId = null;
 
-// مستمع الضغط على زر قبول الطلب
+// مستمع الضغط على زر قبول الطلب (معدّل ليستخدم النافذة المخصّصة)
 const acceptJobButton = document.getElementById('acceptJobButton');
+const modal           = document.getElementById('acceptConfirmationModal');
+const btnCancel       = document.getElementById('cancelAccept');
+const btnConfirm      = document.getElementById('confirmAccept');
 
-if (acceptJobButton) {
-    acceptJobButton.addEventListener('click', async () => {
-        // عرض نافذة التأكيد الأولى
-        if (!confirm("هل تريد قبول هذا الطلب؟")) {
-            console.log("تم إلغاء عملية قبول الطلب بناءً على تأكيد المستخدم.");
-            return;
-        }
+if (acceptJobButton && modal && btnCancel && btnConfirm) {
 
-        console.log("بدء عملية قبول الطلب...");
+  // 1) عند النقر على "قبول الطلب" ⇒ إظهار نافذة التأكيد
+  acceptJobButton.addEventListener('click', (event) => {
+    event.preventDefault();
+    modal.style.display = 'flex';
+  });
 
-        // التحقق من المتغيرات الأساسية
-        if (!currentRequestId) {
-            console.error("معرّف الطلب غير متوفر. يرجى التأكد من وجود طلب نشط.");
-            return;
-        }
-        if (!currentWorkerId) {
-            console.error("معرّف العامل غير متوفر. يرجى تسجيل الدخول أولاً.");
-            alert("يرجى تسجيل الدخول قبل قبول الطلب.");
-            return;
-        }
-        if (activeRequestExists) {
-            console.log("تم قبول طلب سابق بالفعل. لن يتم قبول طلب جديد.");
-            alert("لقد قمت بقبول طلب مسبقاً. لا يمكن قبول طلب جديد.");
-            return;
-        }
+  // 2) زر "إلغاء" ⇒ إخفاء النافذة دون أي إجراء إضافي
+  btnCancel.addEventListener('click', () => {
+    modal.style.display = 'none';
+  });
 
-        // تعطيل زر القبول لتفادي الضغط المزدوج
-        acceptJobButton.disabled = true;
-        console.log("تم تعطيل زر قبول الطلب لتفادي الضغط المزدوج.");
+  // 3) زر "متابعة" ⇒ تنفيذ كامل منطق القبول الأصلي
+  btnConfirm.addEventListener('click', async () => {
+    modal.style.display      = 'none';
+    acceptJobButton.disabled = true;
+    console.log("بدء عملية قبول الطلب بعد تأكيد المستخدم...");
 
-        try {
-            // جلب بيانات الطلب والتحقق من حالته
-            const snapshot = await firebase.database().ref('workRequests/' + currentRequestId).once('value');
-            const request = snapshot.val();
-
-            if (!request) {
-                console.error("❌ لم يتم العثور على الطلب في قاعدة البيانات.");
-                alert("❌ الطلب غير موجود.");
-                acceptJobButton.disabled = false;
-                return;
-            }
-
-            if (request.status !== 'pending') {
-                alert("⚠️ لا يمكن قبول الطلب لأنه لم يعد في حالة انتظار.");
-                console.error("رفض قبول الطلب: الحالة الحالية " + request.status);
-                acceptJobButton.disabled = false;
-                return;
-            }
-
-            // تحديث حالة الطلب في Firebase
-            await firebase.database().ref('workRequests/' + currentRequestId).update({
-                status: 'accepted',
-                acceptedBy: currentWorkerId
-            });
-
-// بعد تحديث حالة الطلب في Firebase واستلام النجاح
-alert("✅ تم قبول الطلب بنجاح.");
-console.log(`📢 تم قبول الطلب ${currentRequestId} بواسطة العامل ${currentWorkerId}`);
-
-activeRequestExists = true;
-
-// إخفاء نافذة تفاصيل الطلب وشريط الطلبات معاً
-document.getElementById('jobDetailsPopup').style.display = 'none';
-document.getElementById('ordersPanel').style.display = 'none';
-
-// متابعة تنفيذ الدوال الأخرى مثل عرض المسار وتحديث ETA وغيرها...
-if (currentWorkerLocation && jobLocation) {
-    if (typeof showRoute === "function") {
-        showRoute(currentWorkerLocation, jobLocation);
-        console.log("🚗 تم استدعاء دالة showRoute لعرض الاتجاه والمسافة على الخريطة.");
-    } else {
-        console.error("⚠️ وظيفة showRoute غير معرفة.");
+    // التحقق من المتغيرات الأساسية
+    if (!currentRequestId) {
+      console.error("معرّف الطلب غير متوفر. يرجى التأكد من وجود طلب نشط.");
+      return;
     }
-    startRealTimeETATracking(currentWorkerLocation, jobLocation);
-} else {
-    console.error("❌ بيانات الموقع للعامل أو الطلب غير متوفرة.");
-}
+    if (!currentWorkerId) {
+      alert("يرجى تسجيل الدخول قبل قبول الطلب.");
+      return;
+    }
+    if (activeRequestExists) {
+      alert("لقد قمت بقبول طلب مسبقاً. لا يمكن قبول طلب جديد.");
+      return;
+    }
 
+    try {
+      // جلب بيانات الطلب والتحقق من حالته
+      const snapshot = await firebase.database()
+        .ref('workRequests/' + currentRequestId)
+        .once('value');
+      const request = snapshot.val();
 
-            // التحقق من المسافة لتحديث زر الإلغاء
-// التحقق من المسافة لتحديث زر الإلغاء
-const distance = getWorkerDistance();
-if (distance >= 0.5) {
-    // تم تعطيل إظهار زر الإلغاء
-    // document.getElementById('cancelJobContainer').style.display = 'block';
-    console.log("📍 تم تجاوز المسافة المطلوبة، ولكن لم يتم إظهار زر الإلغاء (تم تعطيله يدويًا). المسافة:", distance.toFixed(2), "كم");
-} else {
-    document.getElementById('cancelJobContainer').style.display = 'none';
-    alert("⚠️ الطلب لن يُلغى إذا أصبح العامل قريبًا (أقل من 500 متر) من الموقع.");
-    console.log("🚨 العامل قريب جدًا ولا يمكن إلغاء الطلب. المسافة:", distance.toFixed(2), "كم");
-}
+      if (!request) {
+        console.error("❌ لم يتم العثور على الطلب في قاعدة البيانات.");
+        alert("❌ الطلب غير موجود.");
+        acceptJobButton.disabled = false;
+        return;
+      }
+      if (request.status !== 'pending') {
+        alert("⚠️ لا يمكن قبول الطلب لأنه لم يعد في حالة انتظار.");
+        console.error("رفض قبول الطلب: الحالة الحالية " + request.status);
+        acceptJobButton.disabled = false;
+        return;
+      }
 
+      // تحديث حالة الطلب في Firebase
+      await firebase.database()
+        .ref('workRequests/' + currentRequestId)
+        .update({
+          status:     'accepted',
+          acceptedBy: currentWorkerId
+        });
 
-            // بدء العد التنازلي لإنهاء الطلب إذا لم يُنفذ خلال مدة معينة
-            const countdownElement = document.getElementById('countdownTimer');
-            if (countdownElement) {
-                startCountdown(3 * 60 * 60 * 1000, countdownElement, () => {
-                  console.log("⏳ انتهى الوقت المخصص لتنفيذ الطلب (3 ساعات). لا يوجد إجراء تلقائي.");
-                  cancelRequestDueToTimeout(currentRequestId);
-                });
-            } else {
-                console.error("⚠️ عنصر 'countdownTimer' غير موجود في الصفحة.");
-            }
+      alert("✅ تم قبول الطلب بنجاح.");
+      console.log(`📢 تم قبول الطلب ${currentRequestId} بواسطة العامل ${currentWorkerId}`);
+      activeRequestExists = true;
 
-        } catch (error) {
-            console.error("❌ حدث خطأ أثناء معالجة قبول الطلب:", error);
-            alert("❌ حدث خطأ أثناء قبول الطلب. يرجى المحاولة مرة أخرى.");
-            acceptJobButton.disabled = false;
+      // إخفاء نافذة التفاصيل واللوحة
+      document.getElementById('jobDetailsPopup').style.display = 'none';
+      document.getElementById('ordersPanel').style.display    = 'none';
+
+      // متابعة عرض المسار وتحديث ETA
+      if (currentWorkerLocation && jobLocation) {
+        if (typeof showRoute === "function") {
+          showRoute(currentWorkerLocation, jobLocation);
+          console.log("🚗 تم استدعاء دالة showRoute لعرض الاتجاه والمسافة على الخريطة.");
         }
-    });
+        startRealTimeETATracking(currentWorkerLocation, jobLocation);
+      }
+
+      // التحقق من المسافة لتحديث زر الإلغاء
+      const distance = getWorkerDistance();
+      if (distance < 0.5) {
+        document.getElementById('cancelJobContainer').style.display = 'none';
+        alert("⚠️ الطلب لن يُلغى إذا أصبح العامل قريبًا (أقل من 500 متر) من الموقع.");
+        console.log("🚨 العامل قريب جدًا ولا يمكن إلغاء الطلب. المسافة:", distance.toFixed(2), "كم");
+      } else {
+        console.log("📍 تجاوز المسافة المطلوبة، ولكن لم يتم إظهار زر الإلغاء. المسافة:", distance.toFixed(2), "كم");
+      }
+
+      // بدء العد التنازلي لإنهاء الطلب بعد 3 ساعات
+      const countdownElement = document.getElementById('countdownTimer');
+      if (countdownElement) {
+        startCountdown(
+          3 * 60 * 60 * 1000,
+          countdownElement,
+          () => {
+            console.log("⏳ انتهى الوقت المخصص لتنفيذ الطلب (3 ساعات).");
+            cancelRequestDueToTimeout(currentRequestId);
+          }
+        );
+      }
+
+    } catch (error) {
+      console.error("❌ حدث خطأ أثناء معالجة قبول الطلب:", error);
+      alert("❌ حدث خطأ أثناء قبول الطلب. يرجى المحاولة مرة أخرى.");
+      acceptJobButton.disabled = false;
+    }
+  });
+
 } else {
-    console.error("🚨 الزر 'acceptJobButton' غير موجود في DOM.");
+  console.error("🚨 أحد العناصر اللازمة (زر القبول أو modal) غير موجودة في DOM.");
 }
+
 
 
 

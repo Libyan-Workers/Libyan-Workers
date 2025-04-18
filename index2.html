@@ -871,11 +871,20 @@ if (typeof PusherPushNotifications === 'undefined') {
 function initBeams() {
     console.log("🚀 DOMContentLoaded تم تنفيذه بنجاح.");
 
-    // 1️⃣ تسجيل Service Worker من نفس المجلد
+    // نحدّد مسار Service Worker بناءً على مكان التشغيل
+    const onGH = window.location.hostname.endsWith('github.io');
+    const swURL = onGH
+      ? '/Libyan-Workers/service-worker.js'   // على GitHub Pages
+      : '/service-worker.js';                // على المحلّي (localhost)
+    const swScope = onGH
+      ? '/Libyan-Workers/'                   // نطاق GitHub Pages
+      : '/';                                  // نطاق localhost
+
+    // 1️⃣ تسجيل Service Worker
     navigator.serviceWorker
-        .register('./service-worker.js')
+        .register(swURL, { scope: swScope })
         .then(() => {
-            console.log("✅😘💕 تم تسجيل Service Worker");
+            console.log(`✅😘💕 تم تسجيل Service Worker من ${swURL}`);
 
             // 2️⃣ الانتظار حتى يكون جاهزاً
             return navigator.serviceWorker.ready;
@@ -912,6 +921,14 @@ function initBeams() {
             }
         });
 }
+
+// التأكد من التنفيذ سواء DOMContentLoaded أو لا (دون تكرار)
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initBeams);
+} else {
+    initBeams();
+}
+
 
 
 

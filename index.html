@@ -3502,6 +3502,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
 // *************** كود تسجيل الدخول بعد التعديل ***************
 
+// مراقبة حالة المصادقة
 firebase.auth().onAuthStateChanged(function(user) {
   if (user) {
     currentUserId = user.uid;
@@ -3514,14 +3515,12 @@ firebase.auth().onAuthStateChanged(function(user) {
     firebase.database().ref('users/' + currentUserId).once('value')
       .then(snapshot => {
         const data = snapshot.val() || {};
-        // إذا لم تكن البيانات موجودة، عرض نافذة الإدخال
         if (!data.name || !data.phone) {
           showInputPopup();
         }
       })
       .catch(err => {
         console.error("خطأ في جلب بيانات المستخدم:", err);
-        // في حال الخطأ، يمكن عرض النافذة لضمان إدخال البيانات
         showInputPopup();
       });
 
@@ -3532,7 +3531,7 @@ firebase.auth().onAuthStateChanged(function(user) {
 });
 
 
-
+// زر تسجيل الدخول باستخدام Google مع تحسين رسائل الخطأ
 document.getElementById('loginWithGoogleBtn').addEventListener('click', function() {
   const loginButton = this;
   loginButton.disabled = true;
@@ -3541,17 +3540,30 @@ document.getElementById('loginWithGoogleBtn').addEventListener('click', function
   firebase.auth().signInWithPopup(provider)
     .then(result => {
       console.log("تم تسجيل الدخول:", result.user);
-      // منطق onAuthStateChanged سيتولى عرض أو إخفاء النافذة
+      // onAuthStateChanged سيتولى إخفاء المودال وعرض التطبيق
     })
     .catch(error => {
       console.error("خطأ أثناء تسجيل الدخول:", error);
-      alert("حدث خطأ أثناء تسجيل الدخول. يرجى المحاولة مرة أخرى.");
+      let errorMessage;
+      switch (error.code) {
+        case 'auth/popup-closed-by-user':
+          errorMessage = "تم إغلاق نافذة تسجيل الدخول قبل إتمام العملية.";
+          break;
+        case 'auth/cancelled-popup-request':
+          errorMessage = "تم إلغاء طلب تسجيل الدخول. حاول مرة أخرى.";
+          break;
+        default:
+          errorMessage = "حدث خطأ أثناء تسجيل الدخول. يرجى المحاولة مرة أخرى.";
+      }
+      alert(errorMessage);
     })
     .finally(() => {
       loginButton.disabled = false;
     });
 });
 
+
+// زر تسجيل الخروج
 document.getElementById('logoutBtn').addEventListener('click', function() {
   if (confirm('هل أنت متأكد أنك تريد تسجيل الخروج؟')) {
     firebase.auth().signOut()
@@ -3565,6 +3577,7 @@ document.getElementById('logoutBtn').addEventListener('click', function() {
       });
   }
 });
+
 
 
 

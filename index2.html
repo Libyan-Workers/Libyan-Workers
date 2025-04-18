@@ -915,32 +915,29 @@ function initBeams() {
     });
 }
 
-// نفّذ initBeams مرة واحدة فقط
-if (document.readyState === 'loading') {
-  document.addEventListener('DOMContentLoaded', initBeams);
+// قبل كل استدعاءات initBeams، نضيف هذا الفحص:
+
+// 1. تأكد من دعم Service Worker وPush API
+if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
+  console.warn('⚠️ Push API غير مدعوم في هذا المتصفح، تم تخطي تهيئة الإشعارات.');
 } else {
-  initBeams();
+  // 2. (اختياري) تعامل خاص مع iOS قبل 16.4
+  const isIOS = /iP(ad|hone|od)/.test(navigator.userAgent);
+  if (isIOS && !('pushManager' in window)) {
+    console.warn('⚠️ جهاز iOS لا يدعم Push API قبل iOS 16.4.');
+  } else {
+    // 3. إذا كان كل شيء مدعوم، نطلق initBeams
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', initBeams);
+    } else {
+      initBeams();
+    }
+  }
 }
 
 
 
 
-
-
-// تأكد من التنفيذ سواء حدث DOMContentLoaded أو لا
-if (document.readyState === 'loading') {
-    document.addEventListener("DOMContentLoaded", initBeams);
-} else {
-    initBeams();
-}
-
-
-// تأكد من تنفيذ الكود سواء حدث DOMContentLoaded أم لا
-if (document.readyState === 'loading') {
-    document.addEventListener("DOMContentLoaded", initBeams);
-} else {
-    initBeams();
-}
 
 console.log("✅💭 126 Pusher Beams تم تحميل المكتبة بنجاح.");
 

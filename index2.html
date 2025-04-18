@@ -871,36 +871,25 @@ if (typeof PusherPushNotifications === 'undefined') {
 function initBeams() {
     console.log("🚀 DOMContentLoaded تم تنفيذه بنجاح.");
 
-    // ✅ تحديد البيئة: هل نحن في GitHub Pages؟
-    const isGitHubPages = location.hostname.includes("github.io");
-
-    // ✅ ضبط المسار الصحيح للـ Service Worker
-    const swPath = isGitHubPages
-        ? '/Libyan-Workers/service-worker.js'  // مسار مناسب لـ GitHub Pages
-        : './service-worker.js';               // مسار مناسب لـ localhost
-
-    const swScope = isGitHubPages
-        ? '/Libyan-Workers/'
-        : './';
-
-    // ✅ تسجيل Service Worker
+    // 1️⃣ تسجيل Service Worker من نفس المجلد
     navigator.serviceWorker
-        .register(swPath, { scope: swScope })
+        .register('./service-worker.js')
         .then(() => {
-            console.log("✅😘💕 تم تسجيل Service Worker:", swPath);
+            console.log("✅😘💕 تم تسجيل Service Worker");
+
+            // 2️⃣ الانتظار حتى يكون جاهزاً
             return navigator.serviceWorker.ready;
         })
         .then(serviceWorkerRegistration => {
             console.log("ℹ️ Service Worker جاهز للاستخدام.");
 
-            // ✅ إنشاء Beams Client مع التحقق من البيئة
+            // 3️⃣ إنشاء Beams Client مع تمرير SW الجاهز
             const beamsClient = new PusherPushNotifications.Client({
                 instanceId: '2a17d881-b1a6-4a38-8cd4-de1ab8212f67',
                 serviceWorkerRegistration: serviceWorkerRegistration,
-                ...(isGitHubPages && { serviceWorkerUrl: swPath }) // فقط لـ GitHub Pages
             });
 
-            // ✅ بدء Beams ثم إضافة الاهتمام
+            // 4️⃣ بدء Pusher Beams
             return beamsClient
                 .start()
                 .then(() => {
@@ -923,7 +912,6 @@ function initBeams() {
             }
         });
 }
-
 
 
 

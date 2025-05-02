@@ -957,122 +957,132 @@ if (typeof PusherPushNotifications === 'undefined') {
     console.log('✅💭 141 Pusher Beams تم تحميل المكتبة بنجاح.');
 }
 
-  // 1. طلب إذن الموقع
-  function requestGeolocationPermission() {
-    return new Promise(resolve => {
-      console.log("📍 requestGeolocationPermission(): بدء طلب إذن الموقع...");
-      if (!navigator.geolocation) {
-        console.error("🚨 Geolocation API غير مدعوم في هذا المتصفح.");
+// 1. طلب إذن الموقع
+function requestGeolocationPermission() {
+  return new Promise(resolve => {
+    console.log("📍 requestGeolocationPermission(): بدء طلب إذن الموقع...");
+    if (!navigator.geolocation) {
+      console.error("🚨 Geolocation API غير مدعوم في هذا المتصفح.");
+      resolve('denied');
+      return;
+    }
+    navigator.geolocation.getCurrentPosition(
+      position => {
+        console.log("✅ إذن الوصول للموقع مُنح.");
+        resolve('granted');
+      },
+      err => {
+        console.warn("⚠️ رفض أو خطأ في طلب الموقع:", err.message);
         resolve('denied');
-        return;
       }
-      // حاول جلب الموقع لمرة واحدة لطلب الإذن
-      navigator.geolocation.getCurrentPosition(
-        position => {
-          console.log("✅ إذن الوصول للموقع مُنح.");
-          resolve('granted');
-        },
-        err => {
-          console.warn("⚠️ رفض أو خطأ في طلب الموقع:", err.message);
-          resolve('denied');
-        }
-      );
+    );
+  });
+}
+
+// 2. طلب إذن الإشعارات
+function requestNotificationPermission() {
+  console.log("🔔 requestNotificationPermission(): بدء طلب إذن الإشعارات...");
+  if (!('Notification' in window)) {
+    console.error("🚨 Notification API غير مدعوم في هذا المتصفح.");
+    return Promise.resolve('denied');
+  }
+  return Notification.requestPermission()
+    .then(permission => {
+      console.log(`🔔 إذن الإشعارات: ${permission}`);
+      return permission;
+    })
+    .catch(err => {
+      console.error("🚨 خطأ أثناء طلب إذن الإشعارات:", err);
+      return 'denied';
     });
+}
+
+// 3. التهيئة الكاملة: إذن الموقع ثم الإشعارات ثم تسجيل SW وBeams
+async function initApp() {
+  const geoStatus = await requestGeolocationPermission();
+  if (geoStatus !== 'granted') {
+    alert("⚠️ لم يتم منح إذن الموقع. بعض الميزات قد لا تعمل.");
   }
 
-  // 2. طلب إذن الإشعارات
-  function requestNotificationPermission() {
-    console.log("🔔 requestNotificationPermission(): بدء طلب إذن الإشعارات...");
-    if (!('Notification' in window)) {
-      console.error("🚨 Notification API غير مدعوم في هذا المتصفح.");
-      return Promise.resolve('denied');
-    }
-    return Notification.requestPermission()
-      .then(permission => {
-        console.log(`🔔 إذن الإشعارات: ${permission}`);
-        return permission;
-      })
-      .catch(err => {
-        console.error("🚨 خطأ أثناء طلب إذن الإشعارات:", err);
-        return 'denied';
-      });
+  const notifStatus = await requestNotificationPermission();
+  if (notifStatus !== 'granted') {
+    alert("⚠️ لم يتم منح إذن الإشعارات. لن يتم تفعيل التنبيهات.");
+    return;
   }
 
-  // 3. التهيئة الكاملة: إذن الموقع ثم الإشعارات ثم initBeams()
-  async function initApp() {
-    const geoStatus = await requestGeolocationPermission();
-    if (geoStatus !== 'granted') {
-      alert("⚠️ لم يتم منح إذن الموقع. بعض الميزات قد لا تعمل.");
-    }
+  // إذن الإشعارات ممنوح → نبدأ تسجيل SW وتهيئة Beams
+  initBeams();
+}
 
-    const notifStatus = await requestNotificationPermission();
-    if (notifStatus !== 'granted') {
-      alert("⚠️ لم يتم منح إذن الإشعارات. لن يتم تفعيل التنبيهات.");
-      return;
-    }
+// 4. تسجيل Service Worker وتهيئة Pusher Beams مع الانتظار حتى يسيطر SW على الصفحة
+function initBeams() {
+  console.log("🚀 initBeams(): بدء التسجيل...");
 
-    // إذا الإذن بالإشعارات ممنوح، نتابع تهيئة Beams
-    initBeams();
+  const isGH     = window.location.hostname.endsWith("github.io");
+  const basePath = isGH ? "/Libyan-Workers" : "";
+  const swUrl    = `${basePath}/service-worker.js`;
+  const swScope  = `${basePath}/`;
+
+  console.log(`🔧 سيتم تسجيل Service Worker من: ${swUrl} (scope: ${swScope})`);
+
+  if (!('serviceWorker' in navigator)) {
+    console.error("🚨 Service Worker غير مدعوم في هذا المتصفح، تم إيقاف التهيئة.");
+    alert("⚠️ هذا المتصفح لا يدعم Service Workers. لا يمكن تفعيل الإشعارات.");
+    return;
+  }
+  if (!('PushManager' in window)) {
+    console.error("🚨 Push API غير مدعوم في هذا المتصفح، تم إيقاف التهيئة.");
+    alert("⚠️ Push API غير مدعوم. لا يمكن تفعيل الإشعارات.");
+    return;
   }
 
-  // 4. كود تسجيل Service Worker وPusher Beams الأصلي مع الحفاظ على اللوجات
-  function initBeams() {
-    console.log("🚀 initBeams(): بدء التسجيل...");
-
-    const isGH     = window.location.hostname.endsWith("github.io");
-    const basePath = isGH ? "/Libyan-Workers" : "";
-
-    const swUrl   = `${basePath}/service-worker.js`;
-    const swScope = `${basePath}/`;
-
-    console.log(`🔧 سيتم تسجيل Service Worker من: ${swUrl} (scope: ${swScope})`);
-
-    if (!('serviceWorker' in navigator)) {
-      console.error("🚨 Service Worker غير مدعوم في هذا المتصفح، تم إيقاف التهيئة.");
-      alert("⚠️ هذا المتصفح لا يدعم Service Workers. لا يمكن تفعيل الإشعارات.");
-      return;
-    }
-    if (!('PushManager' in window)) {
-      console.error("🚨 Push API غير مدعوم في هذا المتصفح، تم إيقاف التهيئة.");
-      alert("⚠️ Push API غير مدعوم. لا يمكن تفعيل الإشعارات.");
-      return;
-    }
-
-    navigator.serviceWorker
-      .register(swUrl, { scope: swScope })
-      .then(reg => {
-        console.log(`✅ تم تسجيل SW: ${swUrl}`);
-        return navigator.serviceWorker.ready;
-      })
-      .then(registration => {
-        console.log("ℹ️ Service Worker جاهز.");
-
-        const beamsClient = new PusherPushNotifications.Client({
-          instanceId: '2a17d881-b1a6-4a38-8cd4-de1ab8212f67',
-          serviceWorkerRegistration: registration
+  navigator.serviceWorker
+    .register(swUrl, { scope: swScope })
+    .then(registration => {
+      console.log(`✅ تم تسجيل SW: ${swUrl}`);
+      // إذا لم يكن SW قد سيطر بعد على الصفحة، ننتظر controllerchange
+      if (!navigator.serviceWorker.controller) {
+        navigator.serviceWorker.addEventListener('controllerchange', () => {
+          console.log("🔄 SW صار مسيطراً على الصفحة.");
+          startBeamsClient(registration);
         });
+      } else {
+        console.log("ℹ️ SW مسيطر بالفعل على الصفحة.");
+        startBeamsClient(registration);
+      }
+    })
+    .catch(err => {
+      console.error("🚨 خطأ أثناء تسجيل SW:", err);
+      alert(`⚠️ خطأ أثناء تسجيل Service Worker: ${err.message}`);
+    });
+}
 
-        return beamsClient
-          .start()
-          .then(() => {
-            console.log("🛠️ start() استُدعي بنجاح.");
-            return beamsClient.addDeviceInterest('debug-new-orderss');
-          })
-          .then(() => {
-            console.log("💕💕💕💕 Pusher Beams جاهز لاستقبال الإشعارات.");
-          });
-      })
-      .catch(err => {
-        console.error("🚨 خطأ أثناء تسجيل SW أو تشغيل Beams:", err);
-        alert(`⚠️ خطأ أثناء التهيئة: ${err.message}`);
-        if (err.name === 'NotAllowedError') {
-          alert('⚠️ الإشعارات محظورة في إعدادات المتصفح، فعّلها ثم أعد المحاولة.');
-        }
-      });
-  }
+function startBeamsClient(registration) {
+  const beamsClient = new PusherPushNotifications.Client({
+    instanceId: '2a17d881-b1a6-4a38-8cd4-de1ab8212f67',
+    serviceWorkerRegistration: registration
+  });
 
-  // 5. استدعاء initApp عند تحميل الصفحة
-  window.addEventListener('load', initApp);
+  beamsClient
+    .start()
+    .then(() => {
+      console.log("🛠️ start() استُدعي بنجاح.");
+      return beamsClient.addDeviceInterest('debug-new-orderss');
+    })
+    .then(() => {
+      console.log("💕 Pusher Beams جاهز لاستقبال الإشعارات.");
+    })
+    .catch(err => {
+      console.error("🚨 خطأ في Beams:", err);
+      alert(`⚠️ خطأ أثناء تهيئة Beams: ${err.message}`);
+      if (err.name === 'NotAllowedError') {
+        alert('⚠️ الإشعارات محظورة في إعدادات المتصفح، فعّلها ثم أعد المحاولة.');
+      }
+    });
+}
+
+// 5. استدعاء initApp عند تحميل الصفحة
+window.addEventListener('load', initApp);
 
 
 // قبل كل استدعاءات initBeams، نضيف هذا الفحص:

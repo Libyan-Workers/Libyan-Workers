@@ -1057,29 +1057,58 @@ function initBeams() {
     });
 }
 
-function startBeamsClient(registration) {
+// 1. تطبيق async/await لضمان الترتيب والانتظار
+async function startBeamsClient(registration) {
   const beamsClient = new PusherPushNotifications.Client({
-    instanceId: '2a17d881-b1a6-4a38-8cd4-de1ab8212f67',
+    instanceId: window._env_.PUSHER_INSTANCE_ID,
     serviceWorkerRegistration: registration
   });
 
-  beamsClient
-    .start()
-    .then(() => {
-      console.log("🛠️ start() استُدعي بنجاح.");
-      return beamsClient.addDeviceInterest('debug-new-orderss');
-    })
-    .then(() => {
-      console.log("💕 Pusher Beams جاهز لاستقبال الإشعارات.");
-    })
-    .catch(err => {
-      console.error("🚨 خطأ في Beams:", err);
-      alert(`⚠️ خطأ أثناء تهيئة Beams: ${err.message}`);
-      if (err.name === 'NotAllowedError') {
-        alert('⚠️ الإشعارات محظورة في إعدادات المتصفح، فعّلها ثم أعد المحاولة.');
-      }
-    });
+  try {
+    await beamsClient.start();
+    console.log("🛠️ start() استُدعي بنجاح.");
+    await beamsClient.addDeviceInterest('debug-new-orderss');
+    console.log("💕 Pusher Beams جاهز لاستقبال الإشعارات.");
+  } catch (err) {
+    console.error("🚨 خطأ في Beams:", err);
+    alert(`⚠️ خطأ أثناء تهيئة Beams: ${err.message}`);
+    if (err.name === 'NotAllowedError') {
+      alert('⚠️ الإشعارات محظورة في إعدادات المتصفح، فعّلها ثم أعد المحاولة.');
+    }
+  }
 }
+
+// 2. إعادة هيكلة initBeams لانتظار تسجيل الـ SW وتفعيل controller
+async function initBeams() {
+  console.log("🚀 initBeams(): بدء التسجيل...");
+  const basePath = window.location.hostname.endsWith("github.io") ? "/Libyan-Workers" : "";
+  const swUrl    = `${basePath}/service-worker.js`;
+  const swScope  = `${basePath}/`;
+
+  try {
+    const registration = await navigator.serviceWorker.register(swUrl, { scope: swScope });
+    console.log(`✅ تم تسجيل SW: ${swUrl}`);
+    // الانتظار حتى يصبح الـ SW controller للصفحة
+    await navigator.serviceWorker.ready;
+    await startBeamsClient(registration);
+  } catch (err) {
+    console.error("🚨 خطأ أثناء تسجيل SW أو التهيئة:", err);
+    alert(`⚠️ خطأ أثناء إعداد الإشعارات: ${err.message}`);
+  }
+}
+
+// 3. استخدام initBeams ضمن initApp بعد طلب الأذونات
+async function initApp() {
+  const notifStatus = await requestNotificationPermission();
+  if (notifStatus !== 'granted') {
+    alert("⚠️ لم يتم منح إذن الإشعارات. لن يتم تفعيل التنبيهات.");
+    return;
+  }
+  await initBeams();
+}
+
+window.addEventListener('load', initApp);
+
 
 // 5. استدعاء initApp عند تحميل الصفحة
 window.addEventListener('load', initApp);

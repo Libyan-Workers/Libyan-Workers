@@ -5040,21 +5040,50 @@ btnConfirm.addEventListener('click', async () => {
   }
 
   try {
-    // —————— جديد: اقرأ finishedCount من مسار العامل ——————
-    const countSnap = await firebase.database()
-      .ref(`workers/${currentWorkerId}/finishedCount`)
-      .once('value');
-    const finishedCount = countSnap.val() || 0;
+// —————— جديد: اقرأ finishedCount من مسار العامل وتأكّد أنه عدد صحيح ——————
+// داخل مسمّت listener لزر قبول الطلب
+acceptJobButton.disabled = true; // عطّل الزر مؤقتاً لتفادي النقرات المتكررة
+try {
+  console.log(`🔍 Fetching finishedCount for worker ${currentWorkerId}`);
+  
+  // — قراءة finishedCount من مسار العامل —
+  const countSnap = await firebase.database()
+    .ref(`workers/${currentWorkerId}/finishedCount`)
+    .once('value');
+  
+  const rawValue = countSnap.val();
+  console.log('📥 Raw finishedCount value from Firebase:', rawValue);
+  
+  // تحويل القيمة إلى عدد صحيح والتأكد من وجودها
+  const finishedCount = parseInt(rawValue, 10) || 0;
+  console.log('✅ Parsed finishedCount:', finishedCount);
 
-    if (finishedCount >= 7) {
-      showNotification(
-        '🚧 مبروك! لقد أتممت 7 مهام حتى الآن.\n' +
-        'يرجى مراجعة مقر الشركة للاستمرار في قبول المزيد من الطلبات.'
-      );
-      acceptJobButton.disabled = false;
-      return;
-    }
-    // —————————————————————————————————————————————
+  // إذا تجاوز العامل 7 طلبات (8 فأكثر)، أظهر الإشعار وارجع دون قبول
+  if (finishedCount > 7) {
+    console.log(
+      `🚫 Blocking acceptance — finishedCount (${finishedCount}) > 7`
+    );
+    showNotification(
+      '🚧 لقد أتممت أكثر من 7 مهام.\n' +
+      'يرجى مراجعة مقر الشركة للاستمرار في قبول المزيد من الطلبات.'
+    );
+    acceptJobButton.disabled = false; // أعد تفعيل الزر
+    return;
+  }
+
+  console.log('▶️ finishedCount ضمن الحد المسموح؛ متابعة عملية القبول');
+  // ... هنا ضَع كودك الخاص بقبول الطلب فعلياً ...
+
+} catch (error) {
+  // إذا حدث خطأ أثناء القراءة من Firebase
+  console.error('❗ Error fetching finishedCount from Firebase:', error);
+  showNotification(
+    '❗ حدث خطأ أثناء التحقق من عدد المهام. يرجى المحاولة لاحقاً.'
+  );
+  acceptJobButton.disabled = false; // أعد تفعيل الزر في حال الخطأ
+}
+
+// —————————————————————————————————————————————
 
     // جلب بيانات الطلب والتحقق من حالته
     const snap = await firebase.database()

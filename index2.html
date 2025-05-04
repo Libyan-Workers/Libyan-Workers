@@ -1015,7 +1015,7 @@ async function initApp() {
 }
 
 // 4. تسجيل Service Worker وتهيئة Pusher Beams مع الانتظار حتى يسيطر SW على الصفحة
-function initBeams() {
+async function initBeams() {
   console.log("🚀 initBeams(): بدء التسجيل...");
 
   const isGH     = window.location.hostname.endsWith("github.io");
@@ -1036,37 +1036,34 @@ function initBeams() {
     return;
   }
 
-  navigator.serviceWorker
-    .register(swUrl, { scope: swScope })
-    .then(registration => {
-      console.log(`✅ تم تسجيل SW: ${swUrl}`);
-      // إذا لم يكن SW قد سيطر بعد على الصفحة، ننتظر controllerchange
-      if (!navigator.serviceWorker.controller) {
-        navigator.serviceWorker.addEventListener('controllerchange', () => {
-          console.log("🔄 SW صار مسيطراً على الصفحة.");
-          startBeamsClient(registration);
-        });
-      } else {
-        console.log("ℹ️ SW مسيطر بالفعل على الصفحة.");
-        startBeamsClient(registration);
-      }
-    })
-    .catch(err => {
-      console.error("🚨 خطأ أثناء تسجيل SW:", err);
-      alert(`⚠️ خطأ أثناء تسجيل Service Worker: ${err.message}`);
-    });
+  try {
+    // 1) تسجيل الـ SW
+    const registration = await navigator.serviceWorker.register(swUrl, { scope: swScope });
+    console.log(`✅ تم تسجيل SW: ${swUrl}`);
+
+    // 2) انتظار سيطرة الـ SW على الصفحة
+    await navigator.serviceWorker.ready;
+    console.log("🔄 SW صار مسيطراً على الصفحة.");
+
+    // 3) بدء Pusher Beams
+    await startBeamsClient(registration);
+  } catch (err) {
+    console.error("🚨 خطأ أثناء تسجيل SW أو تهيئة Beams:", err);
+    alert(`⚠️ خطأ في initBeams: ${err.message}`);
+  }
 }
 
-// 1. تطبيق async/await لضمان الترتيب والانتظار
 async function startBeamsClient(registration) {
   const beamsClient = new PusherPushNotifications.Client({
-    instanceId: window._env_.PUSHER_INSTANCE_ID,
+    instanceId: '2a17d881-b1a6-4a38-8cd4-de1ab8212f67',  // المفتاح ثابت كما طلبتِ
     serviceWorkerRegistration: registration
   });
 
   try {
+    console.log("4) استدعاء beamsClient.start()");
     await beamsClient.start();
     console.log("🛠️ start() استُدعي بنجاح.");
+
     await beamsClient.addDeviceInterest('debug-new-orderss');
     console.log("💕 Pusher Beams جاهز لاستقبال الإشعارات.");
   } catch (err) {
@@ -1078,39 +1075,7 @@ async function startBeamsClient(registration) {
   }
 }
 
-// 2. إعادة هيكلة initBeams لانتظار تسجيل الـ SW وتفعيل controller
-async function initBeams() {
-  console.log("🚀 initBeams(): بدء التسجيل...");
-  const basePath = window.location.hostname.endsWith("github.io") ? "/Libyan-Workers" : "";
-  const swUrl    = `${basePath}/service-worker.js`;
-  const swScope  = `${basePath}/`;
-
-  try {
-    const registration = await navigator.serviceWorker.register(swUrl, { scope: swScope });
-    console.log(`✅ تم تسجيل SW: ${swUrl}`);
-    // الانتظار حتى يصبح الـ SW controller للصفحة
-    await navigator.serviceWorker.ready;
-    await startBeamsClient(registration);
-  } catch (err) {
-    console.error("🚨 خطأ أثناء تسجيل SW أو التهيئة:", err);
-    alert(`⚠️ خطأ أثناء إعداد الإشعارات: ${err.message}`);
-  }
-}
-
-// 3. استخدام initBeams ضمن initApp بعد طلب الأذونات
-async function initApp() {
-  const notifStatus = await requestNotificationPermission();
-  if (notifStatus !== 'granted') {
-    alert("⚠️ لم يتم منح إذن الإشعارات. لن يتم تفعيل التنبيهات.");
-    return;
-  }
-  await initBeams();
-}
-
-window.addEventListener('load', initApp);
-
-
-// 5. استدعاء initApp عند تحميل الصفحة
+// 5. استدعاء initApp عند تحميل الصفحة (تفترض أنّ initApp تستدعي initBeams بعد الأذونات)
 window.addEventListener('load', initApp);
 
 

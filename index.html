@@ -2305,34 +2305,45 @@ function calculateETA(workerLocation, jobLocation) {
 
 
 function sendNotificationsToNearbyWorkers(requestData, userLocation) {
-  const radius = 50;  // نصف القطر المطلوب (50 كم)
-  console.log("تم ضبط نصف القطر على:", radius, "كم");
-    const workersRef = database.ref('workers');
-    workersRef.once('value')
-        .then((snapshot) => {
-            snapshot.forEach((workerSnapshot) => {
-                const workerData = workerSnapshot.val();
-                if (!workerData || !workerData.location) {
-                    console.error("🚨 بيانات العامل غير متوفرة أو الموقع غير صالح:", workerSnapshot.key);
-                    return;
-                }
-                const distance = calculateDistance(userLocation, workerData.location);
-                console.log(`المسافة للعامل ${workerSnapshot.key}: ${distance.toFixed(2)} كم`);
-                console.log("الموقع المُرسل:", userLocation, "وموقع العامل:", workerData.location);
-                
-                if (distance <= radius) {
-                    console.log(`📢 العامل ${workerSnapshot.key} داخل النطاق وسيتم إرسال إشعار.`);
-                    sendPusherNotification(workerSnapshot.key, `طلب ${requestData.workType} في منطقتك.`, "طلب جديد متاح!");
-                } else {
-                    console.warn(`⚠️ العامل ${workerSnapshot.key} خارج نطاق الـ ${radius} كم.`);
-                }
-            });
-        })
-        .catch((error) => {
-            console.error('خطأ في تحميل بيانات العمال:', error);
-            alert('حدث خطأ أثناء جلب بيانات العمال. يرجى المحاولة مرة أخرى.');
-        });
+  const radius = 50;  // كم
+  const workersRef = database.ref('activeWorkers'); // ← نقرأ من المسار المخصص للعمال النشطين
+
+  workersRef.once('value')
+    .then((snapshot) => {
+      snapshot.forEach((workerSnapshot) => {
+        // طباعة مفتاح العامل وقيمته للتدقيق
+        console.log("🔍 key =", workerSnapshot.key, "– value =", workerSnapshot.val());
+        const workerData = workerSnapshot.val();
+
+        // تحقق صارم من وجود lat و lng كأرقام
+        if (
+          !workerData ||
+          typeof workerData.location?.lat !== 'number' ||
+          typeof workerData.location?.lng !== 'number'
+        ) {
+          console.warn("⚠️ سجل ناقص أو موقع غير صالح:", workerSnapshot.key);
+          return;
+        }
+
+        const distance = calculateDistance(userLocation, workerData.location);
+        console.log(
+          `المسافة للعامل ${workerSnapshot.key}: ${distance.toFixed(2)} كم`
+        );
+
+        if (distance <= radius) {
+          sendPusherNotification(
+            workerSnapshot.key,
+            `طلب ${requestData.workType} في منطقتك.`,
+            "طلب جديد متاح!"
+          );
+        }
+      });
+    })
+    .catch((error) => {
+      console.error('خطأ في جلب بيانات العمال:', error);
+    });
 }
+
 
 
 requestsRef.once('value', (snapshot) => {
@@ -3233,8 +3244,8 @@ function submitCounterOffer() {
 
 
 
-        // مفتاح Mapbox
-        mapboxgl.accessToken = window._env_.MAPBOX_ACCESS_TOKEN;
+mapboxgl.accessToken = window._env_.MAPBOX_ACCESS_TOKEN;
+
 
         function isWithinRadius(workerLocation, targetLocation, radius = 500) {
 

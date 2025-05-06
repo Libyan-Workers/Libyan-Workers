@@ -1053,27 +1053,39 @@ async function initBeams() {
   }
 }
 
+// إضافة متغير لمنع التهيئة المكررة
+let beamsInitialized = false;
+
 async function startBeamsClient(registration) {
+  if (beamsInitialized) {
+    console.log("ℹ️ Beams تم تهيئته مسبقاً، سيتم تجاهل التهيئة.");
+    return;
+  }
+  beamsInitialized = true;
+
   const beamsClient = new PusherPushNotifications.Client({
-    instanceId: '2a17d881-b1a6-4a38-8cd4-de1ab8212f67',  // المفتاح ثابت كما طلبتِ
+    instanceId: '2a17d881-b1a6-4a38-8cd4-de1ab8212f67',
     serviceWorkerRegistration: registration
   });
 
-  try {
-    console.log("4) استدعاء beamsClient.start()");
-    await beamsClient.start();
-    console.log("🛠️ start() استُدعي بنجاح.");
-
-    await beamsClient.addDeviceInterest('debug-new-orderss');
-    console.log("💕 Pusher Beams جاهز لاستقبال الإشعارات.");
-  } catch (err) {
-    console.error("🚨 خطأ في Beams:", err);
-    alert(`⚠️ خطأ أثناء تهيئة Beams: ${err.message}`);
-    if (err.name === 'NotAllowedError') {
-      alert('⚠️ الإشعارات محظورة في إعدادات المتصفح، فعّلها ثم أعد المحاولة.');
-    }
-  }
+  beamsClient.start()
+    .then(() => {
+      console.log("🛠️ start() استُدعي بنجاح.");
+      // بعد التأكد من التسجيل، نضيف الاهتمام
+      return beamsClient.addDeviceInterest('debug-new-orderss');
+    })
+    .then(() => {
+      console.log("💕 تم الاشتراك في القناة بنجاح.");
+    })
+    .catch((err) => {
+      console.error("🚨 خطأ أثناء تهيئة Beams:", err);
+      alert(`⚠️ خطأ أثناء تهيئة Beams: ${err.message}`);
+      if (err.name === 'NotAllowedError') {
+        alert('⚠️ الإشعارات محظورة في إعدادات المتصفح، فعّلها ثم أعد المحاولة.');
+      }
+    });
 }
+
 
 // 5. استدعاء initApp عند تحميل الصفحة (تفترض أنّ initApp تستدعي initBeams بعد الأذونات)
 window.addEventListener('load', initApp);

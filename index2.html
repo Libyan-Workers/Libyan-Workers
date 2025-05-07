@@ -3626,25 +3626,13 @@ document.getElementById('viewNegotiationReplies').addEventListener('click', func
 
 
 
-document.getElementById('confirmAccept').addEventListener('click', function() {
-  // 1) احتفظ بالـ requestId الحالية و workerId مسجّل في المتغيّرين
-  const uid = firebase.auth().currentUser.uid;
-  const replyRef = firebase.database().ref('negotiationReplies').push();
-  replyRef.set({
-    authorId:  uid,
-    status:    'accepted',
-    details:   'تم قبول العرض من قبل العامل أحمد',
+// على سبيل المثال عند قبول العرض:
+var newReplyRef = firebase.database().ref('negotiationReplies').push();
+newReplyRef.set({
+    status: 'accepted',  // أو rejected أو new_price
+    details: 'تم قبول العرض من قبل العامل أحمد', // مثال لتفاصيل إضافية
     timestamp: Date.now()
-  })
-  .then(() => {
-    console.log('✅ تم إرسال الرد بنجاح.');
-    // 2) بعد الإرسال، قم بإخفاء نافذة التأكيد وإظهار الخريطة أو إعادة تهيئتها
-    document.getElementById('acceptConfirmationModal').style.display = 'none';
-    initializeMap();  // أو أيّ دالة تعيد تنشيط الخريطة إن لزم
-  })
-  .catch(err => console.error('⚠️ خطأ عند إرسال الرد:', err));
 });
-
 
 
 

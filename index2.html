@@ -3345,10 +3345,11 @@ requestRef.once('value').then((snap) => {
 
                 const distance = calculateDistance(workerLoc, requestData.location);
                 console.log(`المسافة بين العامل والطلب ${requestId}: ${distance.toFixed(2)} كم`);
-                if (distance > 15) {
-                    console.warn(`الطلب ${requestId} بعيد عن نطاق الـ15 كم.`);
-                    return;
-                }
+if (distance > 50) {
+    console.warn(`الطلب ${requestId} بعيد عن نطاق الـ50 كم.`);
+    return;
+}
+
 
                 // إذا كانت الخريطة جاهزة والطلب في حالة 'pending'
                 waitUntilMapReady()

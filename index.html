@@ -1013,6 +1013,8 @@ document.getElementById('descriptionInput').addEventListener('input', function()
 
 <script>
 
+mapboxgl.accessToken = window._env_.MAPBOX_ACCESS_TOKEN;
+
 
 (function(){
       const mapEl = document.getElementById('map');
@@ -3244,7 +3246,6 @@ function submitCounterOffer() {
 
 
 
-mapboxgl.accessToken = window._env_.MAPBOX_ACCESS_TOKEN;
 
 
         function isWithinRadius(workerLocation, targetLocation, radius = 500) {

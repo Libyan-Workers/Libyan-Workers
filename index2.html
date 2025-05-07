@@ -3302,6 +3302,22 @@ function saveRequestForLater(requestData, requestId) {
 // تعديل مستمع الطلبات
 const requestRef = database.ref('workRequests');
 
+// دالة انتظار توفر موقع العامل
+function waitForWorkerLocation(maxWaitMs = 10000) {
+    return new Promise((resolve, reject) => {
+        const start = Date.now();
+        (function check() {
+            if (window.currentWorkerLocation) {
+                return resolve(window.currentWorkerLocation);
+            }
+            if (Date.now() - start > maxWaitMs) {
+                return reject(new Error("⏰ تجاوز الحد الأقصى للانتظار لموقع العامل."));
+            }
+            setTimeout(check, 500);
+        })();
+    });
+}
+
 // 1) تحميل كل الطلبات مرة واحدة وضبط أول currentRequestId
 requestRef.once('value').then((snap) => {
     const data = snap.val();
@@ -3322,33 +3338,39 @@ requestRef.once('value').then((snap) => {
             console.log("🔄 تم تحديث currentRequestId إلى الطلب الجديد:", currentRequestId);
         }
 
-        // التأكد من توفر موقع العامل وحساب المسافة
-        if (!window.currentWorkerLocation) {
-            console.error("🚨 موقع العامل غير متوفر.");
-            return;
-        }
-        const distance = calculateDistance(window.currentWorkerLocation, requestData.location);
-        console.log(`المسافة بين العامل والطلب ${requestId}: ${distance.toFixed(2)} كم`);
-        if (distance > 15) {
-            console.warn(`الطلب ${requestId} بعيد عن نطاق الـ15 كم.`);
-            return;
-        }
+        // بدلاً من التحقق الفوري، انتظر توفر موقع العامل
+        waitForWorkerLocation(10000)
+            .then(workerLoc => {
+                console.log("📍 تم الحصول على موقع العامل:", workerLoc);
 
-        // إذا كانت الخريطة جاهزة والطلب في حالة 'pending'
-        waitUntilMapReady()
-            .then(() => {
-                if (requestData.status === 'pending') {
-                    console.log(`⚙️ معالجة الطلب ${requestId} (pending)`);
-                    startRequestTimeout(requestId, 10);
-                    alert("لديك طلب جديد: " + requestData.workType);
+                const distance = calculateDistance(workerLoc, requestData.location);
+                console.log(`المسافة بين العامل والطلب ${requestId}: ${distance.toFixed(2)} كم`);
+                if (distance > 15) {
+                    console.warn(`الطلب ${requestId} بعيد عن نطاق الـ15 كم.`);
+                    return;
                 }
+
+                // إذا كانت الخريطة جاهزة والطلب في حالة 'pending'
+                waitUntilMapReady()
+                    .then(() => {
+                        if (requestData.status === 'pending') {
+                            console.log(`⚙️ معالجة الطلب ${requestId} (pending)`);
+                            startRequestTimeout(requestId, 10);
+                            alert("لديك طلب جديد: " + requestData.workType);
+                        }
+                    })
+                    .catch((err) => {
+                        console.warn(`الخريطة ليست جاهزة بعد للطلب ${requestId}. حفظ للتعامل لاحقاً.`, err);
+                        saveRequestForLater(requestData, requestId);
+                    });
             })
-            .catch((err) => {
-                console.warn(`الخريطة ليست جاهزة بعد للطلب ${requestId}. حفظ للتعامل لاحقاً.`, err);
-                saveRequestForLater(requestData, requestId);
+            .catch(err => {
+                console.error("🚨 لم يتم الحصول على موقع العامل:", err);
+                // هنا يمكنك اختيار إظهار رسالة للمستخدم أو إعادة المحاولة لاحقًا
             });
     });
 });
+
 
 
 

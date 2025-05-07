@@ -1013,6 +1013,19 @@ document.getElementById('descriptionInput').addEventListener('input', function()
 
 <script>
 
+  // 1. احتفظ بنسخة من الدالة الأصلية
+  const _origWarn = console.warn.bind(console);
+
+  // 2. أعد تعريف console.warn لقمع الرسالة المحددة
+  console.warn = (msg, ...args) => {
+    if (typeof msg === 'string' &&
+        msg.includes('Expected value to be of type number, but found null')) {
+      return; // تجاهل هذا التحذير فقط
+    }
+    _origWarn(msg, ...args);    // باقي التحذيرات تعرض كما هي
+  };
+
+
 mapboxgl.accessToken = window._env_.MAPBOX_ACCESS_TOKEN;
 
 

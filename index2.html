@@ -3626,13 +3626,15 @@ document.getElementById('viewNegotiationReplies').addEventListener('click', func
 
 
 
-// على سبيل المثال عند قبول العرض:
+// بعد التعديل — أضفنا authorId ليطابق القاعدة
 var newReplyRef = firebase.database().ref('negotiationReplies').push();
 newReplyRef.set({
-    status: 'accepted',  // أو rejected أو new_price
-    details: 'تم قبول العرض من قبل العامل أحمد', // مثال لتفاصيل إضافية
+    authorId: firebase.auth().currentUser.uid,   // ← هذا الحقل الجديد
+    status:   'accepted',
+    details:  'تم قبول العرض من قبل العامل أحمد',
     timestamp: Date.now()
 });
+
 
 
 

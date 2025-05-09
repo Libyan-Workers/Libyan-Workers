@@ -760,16 +760,22 @@
         <button id="confirmNo">لا</button>
     </div>
 
-    <!-- نافذة إدخال الاسم ورقم الهاتف -->
-    <div id="inputPopup" style="display:none; position:fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); background: white; border-radius: 10px; padding: 20px; z-index: 3;">
-        <h2>إضافة معلومات</h2>
-        <label for="nameInput">اسم:</label>
-        <input type="text" id="nameInput" placeholder="أدخل الاسم">
-        <label for="phoneInput">رقم هاتف:</label>
-        <input type="text" id="phoneInput" placeholder="أدخل رقم الهاتف">
-        <button id="submitInfo">التالي</button>
-        <button id="cancelInput">إلغاء</button>
-    </div>
+<!-- نافذة إدخال الاسم ورقم الهاتف ونوع المهنة -->
+<div id="inputPopup" style="display:none; position:fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); background: white; border-radius: 10px; padding: 20px; z-index: 3;">
+    <h2>إضافة معلومات</h2>
+    <label for="nameInput">اسم:</label>
+    <input type="text" id="nameInput" placeholder="أدخل الاسم">
+    <br/>
+    <label for="phoneInput">رقم هاتف:</label>
+    <input type="text" id="phoneInput" placeholder="أدخل رقم الهاتف">
+    <br/>
+    <label for="professionInput">نوع المهنة:</label>
+    <input type="text" id="professionInput" placeholder="أدخل نوع المهنة">
+    <br/>
+    <button id="submitInfo">التالي</button>
+    <button id="cancelInput">إلغاء</button>
+</div>
+
 
 
 
@@ -5316,57 +5322,64 @@ if (typeof map !== 'undefined' && map instanceof mapboxgl.Map) {
 }
 
 
-        // تأكيد وضع العلامة
-        document.getElementById('confirmYes').addEventListener('click', () => {
-            const userLocation = map.getCenter();
-            // إضافة العلامة في الموقع الحالي
-            new mapboxgl.Marker({ color: 'green' })
-    .setLngLat(userLocation)
-    .addTo(map);
+// تأكيد وضع العلامة
+document.getElementById('confirmYes').addEventListener('click', () => {
+    const userLocation = map.getCenter();
+    // إضافة العلامة في الموقع الحالي
+    new mapboxgl.Marker({ color: 'green' })
+        .setLngLat(userLocation)
+        .addTo(map);
 
-            // عرض نافذة إدخال الاسم ورقم الهاتف
-            document.getElementById('inputPopup').style.display = 'block';
-            document.getElementById('confirmationPopup').style.display = 'none';
-        });
+    // عرض نافذة إدخال الاسم ورقم الهاتف ونوع المهنة
+    document.getElementById('inputPopup').style.display = 'block';
+    document.getElementById('confirmationPopup').style.display = 'none';
+});
 
-        // إلغاء وضع العلامة
-        document.getElementById('confirmNo').addEventListener('click', () => {
-            document.getElementById('confirmationPopup').style.display = 'none';
-        });
+// إلغاء وضع العلامة
+document.getElementById('confirmNo').addEventListener('click', () => {
+    document.getElementById('confirmationPopup').style.display = 'none';
+});
 
-        // إرسال المعلومات المدخلة إلى Firebase
-        document.getElementById('submitInfo').addEventListener('click', () => {
-            const name = document.getElementById('nameInput').value;
-            const phone = document.getElementById('phoneInput').value;
-            if (name && phone) {
-                const markerData = {
-                    name: name,
-                    phone: phone,
-                    location: {
-                        lng: map.getCenter().lng,
-                        lat: map.getCenter().lat
-                    }
-                };
-                const markersRef = database.ref('markers');
-                markersRef.push(markerData)
-                    .then(() => {
-                        alert('تم حفظ العلامة بنجاح.');
-                        document.getElementById('inputPopup').style.display = 'none';
-                        document.getElementById('nameInput').value = '';
-                        document.getElementById('phoneInput').value = '';
-                    })
-                    .catch((error) => {
-                        alert('حدث خطأ: ' + error.message);
-                    });
-            } else {
-                alert('يرجى ملء جميع الحقول.');
+// إرسال المعلومات المدخلة إلى Firebase
+document.getElementById('submitInfo').addEventListener('click', () => {
+    const name       = document.getElementById('nameInput').value.trim();
+    const phone      = document.getElementById('phoneInput').value.trim();
+    const profession = document.getElementById('professionInput').value.trim();
+
+    // التحقق من ملء جميع الحقول
+    if (name && phone && profession) {
+        const markerData = {
+            name:       name,
+            phone:      phone,
+            profession: profession,
+            location: {
+                lng: map.getCenter().lng,
+                lat: map.getCenter().lat
             }
-        });
+        };
+        const markersRef = database.ref('markers');
+        markersRef.push(markerData)
+            .then(() => {
+                alert('تم حفظ العلامة بنجاح.');
+                // إخفاء النافذة وإعادة تعيين الحقول
+                document.getElementById('inputPopup').style.display = 'none';
+                document.getElementById('nameInput').value       = '';
+                document.getElementById('phoneInput').value      = '';
+                document.getElementById('professionInput').value = '';
+            })
+            .catch((error) => {
+                alert('حدث خطأ: ' + error.message);
+            });
+    } else {
+        alert('يرجى ملء جميع الحقول.');
+    }
+});
 
-        // إلغاء نافذة إدخال المعلومات
-        document.getElementById('cancelInput').addEventListener('click', () => {
-            document.getElementById('inputPopup').style.display = 'none';
-        });
+// إلغاء نافذة إدخال المعلومات
+document.getElementById('cancelInput').addEventListener('click', () => {
+    document.getElementById('inputPopup').style.display = 'none';
+});
+
 
 
     // عرض معلومات عن العمال

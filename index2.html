@@ -3698,13 +3698,22 @@ document.getElementById('viewNegotiationReplies').addEventListener('click', func
 
 
 
-// على سبيل المثال عند قبول العرض:
-var newReplyRef = firebase.database().ref('negotiationReplies').push();
-newReplyRef.set({
-    status: 'accepted',  // أو rejected أو new_price
-    details: 'تم قبول العرض من قبل العامل أحمد', // مثال لتفاصيل إضافية
-    timestamp: Date.now()
+firebase.auth().onAuthStateChanged(function(user) {
+  if (user) {
+    var newReplyRef = firebase.database().ref('negotiationReplies').push();
+    newReplyRef.set({
+      workerId:  user.uid,
+      status:    'accepted',
+      details:   'تم قبول العرض من قبل العامل أحمد',
+      timestamp: Date.now()
+    });
+  } else {
+    console.log("المستخدم غير مسجّل الدخول");
+    // يمكنك عرض رسالة أو توجيه المستخدم إلى صفحة تسجيل الدخول
+  }
 });
+
+
 
 
 

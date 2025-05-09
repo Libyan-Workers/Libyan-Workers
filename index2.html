@@ -509,9 +509,10 @@
     <p>اسم العامل: <span id="workerNameDisplay">غير متوفر</span></p>
     <p>معرّف العامل: <span id="workerIdDisplay">غير متوفر</span></p>
     <p>رقم الهاتف: <span id="workerPhoneDisplay">غير متوفر</span></p>
-    
+        <p>المهنة: <span id="workerProfessionDisplay">غير متوفر</span></p>
+
     <!-- نص الدعم الفني والشركة -->
-    <div style="margin-top: 450px; text-align: center;">
+    <div style="margin-top: 410px; text-align: center;">
         <p style="margin: 0;">الدعم الفني و الشركة : 0927781546</p>
     </div>
     
@@ -915,6 +916,7 @@ if (savedWorkerId) {
         document.getElementById("workerNameDisplay").textContent = workerData.name;
         document.getElementById("workerIdDisplay").textContent = savedWorkerId;
         document.getElementById("workerPhoneDisplay").textContent = workerData.phone || "غير متوفر";
+      document.getElementById("workerProfessionDisplay").textContent = workerData.profession || "غير متوفر";
 
         // إخفاء نافذة تسجيل الدخول
         document.getElementById("loginPopup").style.display = "none";

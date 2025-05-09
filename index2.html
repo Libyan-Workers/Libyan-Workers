@@ -441,6 +441,42 @@
 }
 
 
+/* === تنسيقات مودال تسجيل الدخول بـ Gmail === */
+.login-modal {
+  position: fixed;
+  top: 0; left: 0;
+  width: 100%; height: 100%;
+  background: rgba(0,0,0,0.5);
+  display: none;
+  justify-content: center;
+  align-items: center;
+  z-index: 10000;
+}
+.login-modal-content {
+  background: #fff;
+  padding: 20px;
+  border-radius: 10px;
+  width: 90%;
+  max-width: 400px;
+  text-align: center;
+  box-shadow: 0 0 10px rgba(0,0,0,0.3);
+}
+.login-modal-content h2 {
+  margin-bottom: 15px;
+}
+.login-modal-content button {
+  padding: 10px 20px;
+  font-size: 16px;
+  border: none;
+  border-radius: 5px;
+  background-color: #4285F4;
+  color: #fff;
+  cursor: pointer;
+  transition: background 0.3s ease;
+}
+.login-modal-content button:hover {
+  background-color: #357AE8;
+}
 
 
 
@@ -450,6 +486,17 @@
 
   <!-- 1) نقطــة النهاية التي يقدّمها السيرفر -->
   <script src="env.js"></script>
+
+
+  <!-- نافذة تسجيل الدخول باستخدام Gmail -->
+<div id="loginModal" class="login-modal">
+  <div class="login-modal-content">
+    <h2>تسجيل الدخول</h2>
+    <p>يرجى تسجيل الدخول باستخدام حساب Gmail لاستكمال الاستخدام.</p>
+    <button id="loginWithGoogleBtn">تسجيل الدخول باستخدام Gmail</button>
+  </div>
+</div>
+
 
     <!-- أيقونة الإعدادات في أعلى اليسار -->
 <button id="settingsBtn" style="position: fixed; top: 10px; left: 10px; z-index: 1100; background: none; border: none; cursor: pointer;">
@@ -1163,6 +1210,30 @@ window.sendPusherNotification = sendPusherNotification;
 
 
 
+// 1) مراقبة حالة المصادقة
+firebase.auth().onAuthStateChanged(function(user) {
+  const modal = document.getElementById('loginModal');
+  if (user) {
+    // إخفاء المودال عند نجاح الدخول
+    modal.style.display = 'none';
+    // يمكن هنا إضافة أي معالجة إضافية بعد تسجيل الدخول
+  } else {
+    // عرض المودال إذا لم يكن هناك مستخدم
+    modal.style.display = 'flex';
+  }
+});
+
+// 2) حدث الضغط على زر “تسجيل الدخول باستخدام Gmail”
+document.getElementById('loginWithGoogleBtn').addEventListener('click', function() {
+  this.disabled = true;
+  const provider = new firebase.auth.GoogleAuthProvider();
+  firebase.auth().signInWithPopup(provider)
+    .catch(error => {
+      console.error("خطأ أثناء تسجيل الدخول:", error);
+      alert("حدث خطأ أثناء تسجيل الدخول. حاول مجددًا.");
+    })
+    .finally(() => this.disabled = false);
+});
 
 
 

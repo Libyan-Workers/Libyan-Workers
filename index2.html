@@ -2063,110 +2063,79 @@ let currentWorkerName = null; // تعريف متغيّر عام لتخزين ا�
 let activeRequestExists = false; // لتحديد ما إذا كان للعامل طلب نشط بالفعل
 
 function loginWorker() {
-    const inputId = document.getElementById('workerLoginId').value;
-
+    const inputId = document.getElementById('workerLoginId').value.trim();
     if (!inputId) {
-        alert("يرجى إدخال معرّف العامل.");
-        return;
+        return alert("يرجى إدخال معرّف العامل.");
     }
 
-    // تعيين قيمة workerId مباشرةً لضمان استخدامها في كافة الاستعلامات
-    workerId = inputId;
-
-    // التحقق مما إذا كان المعرف موجودًا داخل "workers"
+    // 1) تحقق أولاً من وجود العامل في "workers"
     database.ref(`workers/${inputId}`).once('value')
-        .then((snapshot) => {
+        .then(snapshot => {
             if (snapshot.exists()) {
                 const workerData = snapshot.val();
                 console.log(`✅ تم تسجيل الدخول بنجاح: ${workerData.name}`);
-                
-                // *** حفظ معرّف العامل في localStorage ***
+                // حفظ الجلسة وتحديث الواجهة...
                 localStorage.setItem("workerId", inputId);
-                
-                // تعيين currentWorkerId و currentWorkerName بالإضافة إلى workerId
-                currentWorkerId = inputId;
                 window.currentWorkerId = inputId;
-                workerId = inputId; // تأكيد تحديث المتغير العام workerId
                 currentWorkerName = workerData.name;
-                
-                console.log("✅ currentWorkerId (local):", currentWorkerId);
-                console.log("✅ window.currentWorkerId:", window.currentWorkerId);
-                console.log("✅ workerId:", workerId);
-                
-                // تحديث محتويات نافذة الإعدادات
-                document.getElementById("workerNameDisplay").textContent = workerData.name;
-                document.getElementById("workerIdDisplay").textContent = inputId;
-                document.getElementById("workerPhoneDisplay").textContent = workerData.phone || "غير متوفر";
-                
-                // إخفاء نافذة تسجيل الدخول
+                // إخفاء البوب أب وتهيئة الجلسة
                 document.getElementById('loginPopup').style.display = 'none';
-                
-                // تهيئة جلسة العامل باستخدام workerId
-                initializeWorkerSession(workerId);
-            } else {
-                // التحقق من وجود المعرف داخل "availableWorkerIds"
-                database.ref(`availableWorkerIds/${inputId}`).once('value')
-                    .then((availableSnapshot) => {
-                        if (availableSnapshot.exists() && availableSnapshot.val().used === false) {
-                            console.log(`🔄 تخصيص المعرّف ${inputId} وإنشاؤه في workers.`);
-                            
-                            // تحديث حالة المعرّف في availableWorkerIds إلى "مستخدم"
-                            database.ref(`availableWorkerIds/${inputId}`).update({ used: true, usedAt: new Date().toISOString() });
-                            
-                            const workerName = prompt("أدخل اسمك لاستخدام هذا المعرّف:");
-                            if (!workerName) {
-                                alert("يجب إدخال اسم لاستخدام هذا المعرّف.");
-                                return;
-                            }
-                            
-                            // إضافة prompt لإدخال رقم الهاتف
-                            const workerPhone = prompt("أدخل رقم الهاتف:");
-                            if (!workerPhone) {
-                                alert("يجب إدخال رقم الهاتف.");
-                                return;
-                            }
-                            
-                            // إنشاء سجل جديد في "workers" مع الاسم ورقم الهاتف
-                            database.ref(`workers/${inputId}`).set({
-                                name: workerName,
-                                phone: workerPhone, // الحقل المضاف
-                                assignedAt: new Date().toISOString(),
-                                location: { lng: 0, lat: 0 } // سيتم تحديثه لاحقًا
-                            }).then(() => {
-                                console.log(`✅ تم تخصيص المعرّف ${inputId} للعامل: ${workerName}`);
-                                
-                                // *** حفظ معرّف العامل في localStorage بعد التخصيص ***
-                                localStorage.setItem("workerId", inputId);
-                                
-                                // تعيين currentWorkerId و currentWorkerName بالإضافة إلى workerId
-                                currentWorkerId = inputId;
-                                window.currentWorkerId = inputId;
-                                workerId = inputId; // تحديث المتغير العام workerId
-                                currentWorkerName = workerName;
-                                
-                                console.log("✅ currentWorkerId (local):", currentWorkerId);
-                                console.log("✅ window.currentWorkerId:", window.currentWorkerId);
-                                console.log("✅ workerId:", workerId);
-                                
-                                // تحديث محتويات نافذة الإعدادات
-                                document.getElementById("workerNameDisplay").textContent = workerName;
-                                document.getElementById("workerIdDisplay").textContent = inputId;
-                                document.getElementById("workerPhoneDisplay").textContent = workerPhone;
-                                
-                                // تسجيل الدخول بعد التخصيص
-                                document.getElementById('loginPopup').style.display = 'none';
-                                initializeWorkerSession(workerId);
-                            });
-                        } else {
-                            console.warn("⚠️ المعرّف غير صالح أو غير موجود في قاعدة البيانات.");
-                            alert("المعرّف غير صالح، يرجى التحقق.");
-                        }
-                    })
-                    .catch((error) => console.error("❌ خطأ أثناء التحقق من availableWorkerIds:", error));
+                initializeWorkerSession(inputId);
+                return;
             }
+            // 2) إن لم يكن موجوداً، نتحقق من availableWorkerIds
+            return database.ref(`availableWorkerIds/${inputId}`).once('value');
         })
-        .catch((error) => console.error("❌ خطأ أثناء تسجيل الدخول:", error));
+        .then(availableSnapshot => {
+            if (!availableSnapshot) return;  // انتهى عند تسجيل الدخول الناجح
+            const data = availableSnapshot.val();
+            if (!data || data.used) {
+                console.warn("⚠️ المعرّف غير صالح أو مستخدم مسبقاً.");
+                return alert("المعرّف غير صالح، يرجى التحقق.");
+            }
+
+            // 3) المعرف صالح → نطلب من المستخدم إدخال التفاصيل
+            //    (نحدث حالة 'used' قبل الإدخال لضمان منع السباق)
+            database.ref(`availableWorkerIds/${inputId}`).update({
+                used:   true,
+                usedAt: new Date().toISOString()
+            });
+
+            const workerName       = prompt("أدخل اسمك لاستخدام هذا المعرّف:").trim();
+            const workerPhone      = prompt("أدخل رقم الهاتف:").trim();
+            const workerProfession = prompt("أدخل مهنتك:").trim();
+
+            if (!workerName || !workerPhone || !workerProfession) {
+                return alert("⚠️ يجب تعبئة جميع الحقول لإنشاء الحساب.");
+            }
+
+            // 4) تسجيل البيانات الجديدة تحت workers/{inputId}
+            return database.ref(`workers/${inputId}`).set({
+                name:        workerName,
+                phone:       workerPhone,
+                profession:  workerProfession,
+                assignedAt:  new Date().toISOString(),
+                location:    { lat: 0, lng: 0 },
+                active:      false,
+                isAvailable: true,
+                skill:       "",
+                hasActiveRequest: false
+            }).then(() => {
+                console.log(`✅ تم تخصيص المعرّف ${inputId} للعامل ${workerName}`);
+                // حفظ الجلسة وتحديث الواجهة
+                localStorage.setItem("workerId", inputId);
+                window.currentWorkerId = inputId;
+                currentWorkerName = workerName;
+                document.getElementById('loginPopup').style.display = 'none';
+                initializeWorkerSession(inputId);
+            });
+        })
+        .catch(error => {
+            console.error("❌ خطأ أثناء loginWorker:", error);
+            alert("حدث خطأ، يرجى المحاولة لاحقاً.");
+        });
 }
+
 
 
 
@@ -3704,45 +3673,27 @@ document.getElementById('viewNegotiationReplies').addEventListener('click', func
 
 
 
+// 1) onAuthStateChanged بدون إنشاء سجل في workers/{user.uid}
 firebase.auth().onAuthStateChanged(function(user) {
   if (user) {
-    console.log("✅ تم تسجيل الدخول");
+    console.log("✅ تم تسجيل الدخول (Auth)");
     console.log("auth.uid =", user.uid);
 
-    const workerRef = firebase.database().ref('workers/' + user.uid);
+    // إذا أردت تتبع مستخدمي المصادقة استخدم مساراً منفصلاً:
+    // const userRef = firebase.database().ref('users/' + user.uid);
+    // userRef.set({ /* بيانات المستخدم */ });
 
-    workerRef.once('value', function(snapshot) {
-      if (!snapshot.exists()) {
-        console.log("⛔ لا يوجد سجل للعامل، سيتم إنشاؤه الآن...");
-        workerRef.set({
-          name: "اسم افتراضي",
-          phone: "0000000000",
-          notificationToken: "",
-          location: { lat: 0, lng: 0 },
-          lastActive: Date.now(),
-          lastActiveFormatted: "",
-          active: true,
-          isAvailable: true,
-          hasActiveRequest: false,
-          assignedAt: "",
-          skill: ""
-        });
-      } else {
-        console.log("✅ العامل موجود في قاعدة البيانات");
-      }
-
-      // بعد التأكد، إرسال الرد
-      var newReplyRef = firebase.database().ref('negotiationReplies').push();
-      newReplyRef.set({
-        workerId: user.uid,
-        status: 'accepted',
-        details: 'تم قبول العرض من قبل العامل أحمد',
-        timestamp: Date.now()
-      }).then(() => {
-        console.log("✅ تم إرسال الرد");
-      }).catch((error) => {
-        console.error("❌ خطأ أثناء الإرسال:", error);
-      });
+    // مثال إرسال رد مفاوضة كما كان سابقاً
+    const replyRef = firebase.database().ref('negotiationReplies').push();
+    replyRef.set({
+      workerId:  user.uid,
+      status:    'accepted',
+      details:   'تم قبول العرض من قبل العامل أحمد',
+      timestamp: Date.now()
+    }).then(() => {
+      console.log("✅ تم إرسال الرد");
+    }).catch(err => {
+      console.error("❌ خطأ أثناء إرسال الرد:", err);
     });
   } else {
     console.log("المستخدم غير مسجّل الدخول");
@@ -3771,30 +3722,55 @@ firebase.auth().onAuthStateChanged(function(user) {
       });
     }
 
-    // دالة لتخصيص معرّف لعامل معين
-    function assignWorkerId(workerName, lng, lat) {
-    database.ref('availableWorkerIds').orderByChild('used').equalTo(false).limitToFirst(1).once('value')
-        .then((snapshot) => {
-            if (snapshot.exists()) {
-                const workerId = Object.keys(snapshot.val())[0]; // أول معرّف غير مستخدم
-
-                // تحديث حالة المعرّف إلى "مستخدم"
-                database.ref(`availableWorkerIds/${workerId}`).update({ used: true });
-
-                // تسجيل العامل في قاعدة البيانات
-                database.ref(`workers/${workerId}`).set({
-                    name: workerName,
-                    assignedAt: new Date().toISOString(),
-                    location: { lng: lng, lat: lat }
-                });
-
-                console.log(`تم تخصيص المعرّف ${workerId} للعامل: ${workerName}`);
-            } else {
-                console.log("لا توجد معرّفات متاحة.");
+// دالة لتخصيص معرّف لعامل معين مع تحديث الاستخدام وتسجيل كافة البيانات
+function assignWorkerId(workerName, workerPhone, workerProfession, lng, lat) {
+    database.ref('availableWorkerIds')
+        .orderByChild('used')
+        .equalTo(false)
+        .limitToFirst(1)
+        .once('value')
+        .then(snapshot => {
+            if (!snapshot.exists()) {
+                console.log("⚠️ لا توجد معرّفات متاحة.");
+                return;
             }
+
+            const workerId = Object.keys(snapshot.val())[0]; // أول معرّف غير مستخدم
+            const usedAt    = new Date().toISOString();
+
+            // 1) تحديث حالة المعرّف في availableWorkerIds
+            return database.ref(`availableWorkerIds/${workerId}`)
+                .update({ used: true, usedAt })
+                .then(() => workerId);
         })
-        .catch((error) => console.error("خطأ أثناء تخصيص المعرّف:", error));
+        .then(workerId => {
+            if (!workerId) return;  // لم يوجد معرّف
+            // 2) تسجيل بيانات العامل الكاملة تحت workers/{workerId}
+            return database.ref(`workers/${workerId}`).set({
+                name:               workerName,
+                phone:              workerPhone,
+                profession:         workerProfession,
+                active:             false,
+                isAvailable:        true,
+                hasActiveRequest:   false,
+                assignedAt:         new Date().toISOString(),
+                lastActive:         Date.now(),
+                lastActiveFormatted:"",
+                location:           { lng, lat },
+                notificationToken:  "",
+                skill:              ""
+            }).then(() => workerId);
+        })
+        .then(workerId => {
+            if (!workerId) return;
+            console.log(`✅ تم تخصيص المعرّف ${workerId} للعامل: ${workerName}`);
+            // هنا يمكنك حفظ المعرف في localStorage أو استدعاء initializeWorkerSession(workerId)
+        })
+        .catch(error => {
+            console.error("❌ خطأ أثناء تخصيص المعرّف أو تسجيل العامل:", error);
+        });
 }
+
 
 // دالة تسجيل الدخول باستخدام معرّف العامل
 // تعريف المتغير العام في بداية الملف
@@ -5340,45 +5316,71 @@ document.getElementById('confirmNo').addEventListener('click', () => {
     document.getElementById('confirmationPopup').style.display = 'none';
 });
 
-// إرسال المعلومات المدخلة إلى Firebase
+// إرسال المعلومات المدخلة إلى Firebase (بعد التعديلات)
 document.getElementById('submitInfo').addEventListener('click', () => {
+    // 1) الحصول على معرّف العامل (سواء من الجلسة المؤقتة أو localStorage)
+    const workerId = window.pendingWorkerId || localStorage.getItem('workerId');
+    if (!workerId) {
+        return alert("⚠️ لم يتم اختيار معرّف العامل!");
+    }
+
+    // 2) قراءة حقول النموذج مع trim()
     const name       = document.getElementById('nameInput').value.trim();
     const phone      = document.getElementById('phoneInput').value.trim();
     const profession = document.getElementById('professionInput').value.trim();
 
-    // التحقق من ملء جميع الحقول
-    if (name && phone && profession) {
-        const markerData = {
-            name:       name,
-            phone:      phone,
-            profession: profession,
-            location: {
-                lng: map.getCenter().lng,
-                lat: map.getCenter().lat
-            }
-        };
-        const markersRef = database.ref('markers');
-        markersRef.push(markerData)
-            .then(() => {
-                alert('تم حفظ العلامة بنجاح.');
-                // إخفاء النافذة وإعادة تعيين الحقول
-                document.getElementById('inputPopup').style.display = 'none';
-                document.getElementById('nameInput').value       = '';
-                document.getElementById('phoneInput').value      = '';
-                document.getElementById('professionInput').value = '';
-            })
-            .catch((error) => {
-                alert('حدث خطأ: ' + error.message);
-            });
-    } else {
-        alert('يرجى ملء جميع الحقول.');
+    // 3) التحقق من تعبئة جميع الحقول
+    if (!name || !phone || !profession) {
+        return alert("⚠️ يرجى ملء جميع الحقول.");
     }
+
+    // 4) كتابة/تحديث سجل العامل تحت workers/{workerId}
+    const workerRef = database.ref(`workers/${workerId}`);
+    workerRef.set({
+        name,
+        phone,
+        profession,
+        active:             false,
+        isAvailable:        true,
+        hasActiveRequest:   false,
+        assignedAt:         new Date().toISOString(),
+        lastActive:         Date.now(),
+        lastActiveFormatted:"",
+        location: {
+            lng: map.getCenter().lng,
+            lat: map.getCenter().lat
+        },
+        notificationToken:  "",
+        skill:              ""
+    })
+    .then(() => {
+        console.log(`✅ تم حفظ بيانات العامل ${workerId}`);
+        // 5) تحديث حالة المعرف في availableWorkerIds
+        return database.ref(`availableWorkerIds/${workerId}`).update({
+            used:   true,
+            usedAt: new Date().toISOString()
+        });
+    })
+    .then(() => {
+        alert("✅ تم حفظ بيانات العامل بنجاح.");
+        // 6) إخفاء النموذج وإعادة تهيئة الحقول
+        document.getElementById('inputPopup').style.display = 'none';
+        document.getElementById('nameInput').value       = '';
+        document.getElementById('phoneInput').value      = '';
+        document.getElementById('professionInput').value = '';
+        window.pendingWorkerId = null;
+    })
+    .catch(error => {
+        alert("❌ حدث خطأ: " + error.message);
+    });
 });
 
 // إلغاء نافذة إدخال المعلومات
 document.getElementById('cancelInput').addEventListener('click', () => {
     document.getElementById('inputPopup').style.display = 'none';
+    window.pendingWorkerId = null;
 });
+
 
 
 

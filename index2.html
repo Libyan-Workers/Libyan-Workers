@@ -3700,18 +3700,49 @@ document.getElementById('viewNegotiationReplies').addEventListener('click', func
 
 firebase.auth().onAuthStateChanged(function(user) {
   if (user) {
-    var newReplyRef = firebase.database().ref('negotiationReplies').push();
-    newReplyRef.set({
-      workerId:  user.uid,
-      status:    'accepted',
-      details:   'تم قبول العرض من قبل العامل أحمد',
-      timestamp: Date.now()
+    console.log("✅ تم تسجيل الدخول");
+    console.log("auth.uid =", user.uid);
+
+    const workerRef = firebase.database().ref('workers/' + user.uid);
+
+    workerRef.once('value', function(snapshot) {
+      if (!snapshot.exists()) {
+        console.log("⛔ لا يوجد سجل للعامل، سيتم إنشاؤه الآن...");
+        workerRef.set({
+          name: "اسم افتراضي",
+          phone: "0000000000",
+          notificationToken: "",
+          location: { lat: 0, lng: 0 },
+          lastActive: Date.now(),
+          lastActiveFormatted: "",
+          active: true,
+          isAvailable: true,
+          hasActiveRequest: false,
+          assignedAt: "",
+          skill: ""
+        });
+      } else {
+        console.log("✅ العامل موجود في قاعدة البيانات");
+      }
+
+      // بعد التأكد، إرسال الرد
+      var newReplyRef = firebase.database().ref('negotiationReplies').push();
+      newReplyRef.set({
+        workerId: user.uid,
+        status: 'accepted',
+        details: 'تم قبول العرض من قبل العامل أحمد',
+        timestamp: Date.now()
+      }).then(() => {
+        console.log("✅ تم إرسال الرد");
+      }).catch((error) => {
+        console.error("❌ خطأ أثناء الإرسال:", error);
+      });
     });
   } else {
     console.log("المستخدم غير مسجّل الدخول");
-    // يمكنك عرض رسالة أو توجيه المستخدم إلى صفحة تسجيل الدخول
   }
 });
+
 
 
 
